@@ -1,1 +1,1498 @@
-REPLACE_WITH_FULL_HTML_HERE
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portfolio • Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap');
+    
+    :root {
+      --font-sans: 'Inter', system_ui, sans-serif;
+    }
+    
+    body {
+      font-family: 'Inter', system_ui, -apple-system, sans-serif;
+    }
+    
+    .font-display {
+      font-family: 'Space Grotesk', 'Inter', system_ui, sans-serif;
+      font-feature-settings: "ss01";
+    }
+
+    .stat-number {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .modern-table {
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    .modern-table th {
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .modern-table td {
+      transition: background-color 0.1s ease;
+    }
+
+    .modern-table tr:hover td {
+      background-color: #18181b;
+    }
+
+    .price-input, .shares-input, .pct-input {
+      background-color: transparent;
+      border: 1px solid transparent;
+      transition: all 0.1s ease;
+      font-variant-numeric: tabular-nums;
+    }
+    
+    .price-input:focus, .shares-input:focus, .pct-input:focus {
+      background-color: #27272a;
+      border-color: #3b82f6;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .value-cell {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+    }
+
+    .sort-arrow {
+      font-size: 10px;
+      opacity: 0.5;
+      margin-left: 3px;
+    }
+    th:hover .sort-arrow {
+      opacity: 0.85;
+    }
+
+    .gain-positive { color: #4ade80; }
+    .gain-negative { color: #f87171; }
+
+    .glass {
+      background: rgba(24, 24, 27, 0.85);
+      backdrop-filter: blur(20px);
+    }
+
+    .section {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .data-row {
+      transition: all 0.15s ease;
+    }
+
+    .metric {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    .portfolio-value {
+      font-size: 2.75rem;
+      line-height: 1;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+
+    .subtle-border {
+      border-color: #27272a;
+    }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-200">
+  <div class="max-w-7xl mx-auto px-6 py-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+      <div class="flex items-center gap-x-3">
+        <div class="w-9 h-9 bg-white rounded-2xl flex items-center justify-center">
+          <span class="text-zinc-950 text-2xl font-bold tracking-[-1.5px]">P</span>
+        </div>
+        <div>
+          <div class="font-semibold text-3xl tracking-[-1.5px] font-display">Portfolio</div>
+          <div class="text-[10px] text-zinc-500 -mt-1 tracking-[1.5px] font-medium">TRACKER</div>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-x-4">
+        <div id="last-updated" 
+             class="hidden items-center gap-x-2 text-xs px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-2xl text-zinc-400">
+          <div class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></div>
+          <span id="last-updated-text">Checking market status…</span>
+        </div>
+        
+        <div class="text-xs px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center gap-x-1.5">
+          <span class="text-zinc-400">Data source</span>
+          <span id="data-source-label" class="font-medium text-emerald-400">OnclickMedia (delayed)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hero Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+      <!-- Total Value -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 col-span-1 md:col-span-2">
+        <div class="flex justify-between items-start mb-3">
+          <div>
+            <div class="text-xs font-semibold tracking-widest text-zinc-400">TOTAL MARKET VALUE</div>
+            <div id="total-value" class="portfolio-value text-white mt-2 tabular-nums">$0.00</div>
+          </div>
+          <div class="text-right">
+            <div id="total-positions" class="text-sm font-medium text-zinc-300">0 positions</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Day's Change -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+        <div class="text-xs font-semibold tracking-widest text-zinc-400 mb-2">TODAY'S P/L</div>
+        <div id="day-pl" class="text-4xl font-semibold tabular-nums mt-1">$0.00</div>
+        <div id="day-pl-pct" class="text-sm font-medium mt-1 tabular-nums">0.00%</div>
+      </div>
+
+      <!-- Quick Info -->
+      <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 flex flex-col min-h-[152px]">
+        <div class="text-xs font-semibold tracking-widest text-zinc-400 mb-2">TODAY'S MOVERS</div>
+        
+        <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+          <!-- Best % -->
+          <div>
+            <div class="text-[10px] text-emerald-400 tracking-wider">BEST %</div>
+            <div id="best-pct" class="font-semibold text-emerald-400">—</div>
+          </div>
+          <!-- Best $ -->
+          <div>
+            <div class="text-[10px] text-emerald-400 tracking-wider">BEST $</div>
+            <div id="best-dollar" class="font-semibold text-emerald-400">—</div>
+          </div>
+          <!-- Worst % -->
+          <div>
+            <div class="text-[10px] text-rose-400 tracking-wider">WORST %</div>
+            <div id="worst-pct" class="font-semibold text-rose-400">—</div>
+          </div>
+          <!-- Worst $ -->
+          <div>
+            <div class="text-[10px] text-rose-400 tracking-wider">WORST $</div>
+            <div id="worst-dollar" class="font-semibold text-rose-400">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
+      <table class="w-full modern-table">
+        <thead>
+          <tr class="border-b border-zinc-800 bg-zinc-900">
+            <th onclick="sortBy('symbol')" class="cursor-pointer hover:bg-zinc-800 text-left py-3.5 px-6 text-xs font-semibold text-zinc-400 w-24 select-none">SYMBOL <span id="sort-symbol" class="sort-arrow"></span></th>
+            <th onclick="sortBy('name')" class="cursor-pointer hover:bg-zinc-800 text-left py-3.5 px-3 text-xs font-semibold text-zinc-400 select-none">NAME <span id="sort-name" class="sort-arrow"></span></th>
+            <th onclick="sortBy('shares')" class="cursor-pointer hover:bg-zinc-800 text-right py-3.5 px-4 text-xs font-semibold text-zinc-400 w-28 select-none">SHARES <span id="sort-shares" class="sort-arrow"></span></th>
+            <th onclick="sortBy('price')" class="cursor-pointer hover:bg-zinc-800 text-right py-3.5 px-4 text-xs font-semibold text-zinc-400 w-32 select-none">PRICE <span id="sort-price" class="sort-arrow"></span></th>
+            <th onclick="sortBy('changePct')" class="cursor-pointer hover:bg-zinc-800 text-right py-3.5 px-4 text-xs font-semibold text-zinc-400 w-28 select-none">CHG % <span id="sort-changePct" class="sort-arrow"></span></th>
+            <th onclick="sortBy('changeUsd')" class="cursor-pointer hover:bg-zinc-800 text-right py-3.5 px-4 text-xs font-semibold text-zinc-400 w-28 select-none">CHG $ <span id="sort-changeUsd" class="sort-arrow"></span></th>
+            <th onclick="sortBy('dayPL')" class="cursor-pointer hover:bg-zinc-800 text-right py-3.5 px-4 text-xs font-semibold text-zinc-400 w-36 select-none">DAY'S GAIN/LOSS <span id="sort-dayPL" class="sort-arrow"></span></th>
+            <th onclick="sortBy('value')" class="cursor-pointer hover:bg-zinc-800 text-right py-3.5 px-6 text-xs font-semibold text-zinc-400 w-36 select-none">MARKET VALUE <span id="sort-value" class="sort-arrow"></span></th>
+            <th class="w-10 py-3.5 px-3"></th>
+          </tr>
+        </thead>
+        <tbody id="table-body" class="text-sm divide-y divide-zinc-800"></tbody>
+        <tfoot id="table-footer" class="border-t border-zinc-700 bg-zinc-900"></tfoot>
+      </table>
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="hidden flex-col items-center justify-center py-16 text-center">
+      <div class="w-16 h-16 bg-zinc-900 border border-zinc-700 rounded-3xl flex items-center justify-center mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+        </svg>
+      </div>
+      <div class="font-semibold text-xl tracking-tight">No holdings yet</div>
+      <p class="text-zinc-400 mt-1 max-w-xs">Import an Excel file or add your first stock position manually.</p>
+      <div class="flex items-center gap-x-3 mt-6">
+        <button onclick="triggerImport()" 
+                class="px-5 py-2.5 text-sm font-medium bg-white text-zinc-950 rounded-2xl">Import Excel</button>
+        <button onclick="loadSampleData()" 
+                class="px-5 py-2.5 text-sm font-medium bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-2xl">Load sample data</button>
+      </div>
+    </div>
+
+    <!-- Toolbar (moved to bottom) -->
+    <div class="glass border border-zinc-800 rounded-3xl p-3 mt-6 flex flex-wrap items-center gap-2">
+      <!-- Import -->
+      <button onclick="triggerImport()"
+              class="flex items-center gap-x-2 bg-white hover:bg-zinc-100 active:bg-white transition-colors text-zinc-950 font-semibold px-5 py-2.5 rounded-2xl text-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.25" d="M4 16v-4m0 0l4 4m-4-4l4-4m12 8v-4m0 0l-4 4m4-4l-4-4" />
+        </svg>
+        <span>Import Excel</span>
+      </button>
+
+      <!-- Export -->
+      <button onclick="exportToExcel()"
+              class="flex items-center gap-x-2 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-800 transition-colors text-white font-medium px-4 py-2.5 rounded-2xl text-sm border border-zinc-700">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.25" d="M4 16v4m0 0h16m-16 0l4-4m-4 4l-4-4m16-8v-4m0 0l-4-4m4 4l4-4" />
+        </svg>
+        <span>Export</span>
+      </button>
+
+      <div class="w-px h-6 bg-zinc-700 mx-1"></div>
+
+      <!-- Refresh Prices -->
+      <button onclick="refreshPrices()"
+              id="refresh-btn"
+              class="flex items-center gap-x-2 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-800 transition-colors text-white font-medium px-4 py-2.5 rounded-2xl text-sm border border-zinc-700">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.25" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.058 11H1M12 3v2m0 16v2m9-9H15m-6 0a8 8 0 01-.938-1.016" />
+        </svg>
+        <span>Refresh Prices</span>
+      </button>
+
+      <!-- API / Real-time Settings -->
+      <button onclick="showApiModal()"
+              class="flex items-center gap-x-2 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-800 transition-colors text-white font-medium px-4 py-2.5 rounded-2xl text-sm border border-zinc-700">
+        <span>API Settings</span>
+      </button>
+
+      <div class="flex-1"></div>
+
+      <!-- Search -->
+      <div class="relative w-64">
+        <input id="search-input" 
+               type="text" 
+               placeholder="Search symbols or names..."
+               oninput="filterTable()"
+               class="w-full bg-zinc-900 border border-zinc-700 text-sm placeholder:text-zinc-500 focus:border-zinc-600 transition-colors px-4 py-2.5 rounded-2xl outline-none">
+      </div>
+
+      <!-- Add -->
+      <button onclick="showEditModal()"
+              class="flex items-center gap-x-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-600 transition-colors text-white font-semibold px-5 py-2.5 rounded-2xl text-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4" />
+        </svg>
+        <span>Add Stock</span>
+      </button>
+    </div>
+
+    <!-- Footer / Info -->
+    <div class="flex items-center justify-between text-[11px] text-zinc-500 mt-5 px-1">
+      <div>
+        Edits to shares, price, and change % are saved instantly. All calculations update live.
+      </div>
+      <button onclick="clearAllData()" 
+              class="hover:text-rose-400 transition-colors flex items-center gap-x-1">
+        <span>Clear all data</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Finnhub API Settings Modal -->
+  <div id="api-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50" onclick="if (event.target.id === 'api-modal') hideApiModal()">
+    <div onclick="event.stopImmediatePropagation()" 
+         class="bg-zinc-900 border border-zinc-700 w-full max-w-md rounded-3xl p-6 shadow-2xl">
+      <div class="flex justify-between items-center mb-4">
+        <div class="font-semibold text-xl tracking-tight">Real-Time Prices</div>
+        <button onclick="hideApiModal()" class="text-zinc-400 hover:text-white p-1">✕</button>
+      </div>
+
+      <div class="text-sm text-zinc-400 mb-4">
+        For accurate real-time prices, connect a free <strong>Finnhub</strong> API key.
+        This gives near real-time US stock quotes (much better than free public feeds).
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-xs font-medium text-zinc-400 mb-1.5 tracking-wider">FINNHUB API KEY</label>
+        <input id="finnhub-token" type="text" placeholder="Paste your free key here"
+               class="w-full bg-zinc-950 border border-zinc-700 focus:border-blue-500 rounded-2xl px-4 py-2.5 font-mono text-sm outline-none">
+      </div>
+
+      <div class="text-xs text-zinc-500 mb-5">
+        Get a free key instantly at <a href="https://finnhub.io/register" target="_blank" class="text-emerald-400 hover:underline">finnhub.io/register</a> (no credit card).
+      </div>
+
+      <div class="flex gap-x-3">
+        <button onclick="clearFinnhubKey()" 
+                class="flex-1 py-3 rounded-2xl font-medium bg-zinc-800 hover:bg-zinc-700 transition-colors border border-zinc-700">Remove Key</button>
+        <button onclick="saveFinnhubKey()" 
+                class="flex-1 py-3 rounded-2xl font-semibold bg-white hover:bg-zinc-100 active:bg-zinc-200 transition-colors text-zinc-950">Save &amp; Use</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit / Add Modal -->
+  <div id="modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50" onclick="if (event.target.id === 'modal') hideModal()">
+    <div onclick="event.stopImmediatePropagation()" 
+         class="bg-zinc-900 border border-zinc-700 w-full max-w-md rounded-3xl p-6 shadow-2xl">
+      <div class="flex justify-between items-center mb-5">
+        <div id="modal-title" class="font-semibold text-xl tracking-tight">Add Stock</div>
+        <button onclick="hideModal()" class="text-zinc-400 hover:text-white p-1">✕</button>
+      </div>
+
+      <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-zinc-400 mb-1.5 tracking-wider">SYMBOL</label>
+            <input id="modal-symbol" type="text" placeholder="AAPL"
+                   class="w-full bg-zinc-950 border border-zinc-700 focus:border-blue-500 rounded-2xl px-4 py-2.5 text-lg font-semibold outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-zinc-400 mb-1.5 tracking-wider">SHARES</label>
+            <input id="modal-shares" type="number" step="any" value="10"
+                   class="w-full bg-zinc-950 border border-zinc-700 focus:border-blue-500 rounded-2xl px-4 py-2.5 text-lg font-medium outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-zinc-400 mb-1.5 tracking-wider">COMPANY NAME</label>
+          <input id="modal-name" type="text" placeholder="Apple Inc."
+                 class="w-full bg-zinc-950 border border-zinc-700 focus:border-blue-500 rounded-2xl px-4 py-2.5 outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-zinc-400 mb-1.5 tracking-wider">CURRENT PRICE</label>
+            <div class="relative">
+              <span class="absolute left-4 top-2.5 text-zinc-400">$</span>
+              <input id="modal-price" type="number" step="0.01" value="0"
+                     class="w-full bg-zinc-950 border border-zinc-700 focus:border-blue-500 rounded-2xl pl-7 pr-4 py-2.5 outline-none">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-zinc-400 mb-1.5 tracking-wider">DAILY CHANGE %</label>
+            <div class="relative">
+              <input id="modal-change-pct" type="number" step="0.01" value="0"
+                     class="w-full bg-zinc-950 border border-zinc-700 focus:border-blue-500 rounded-2xl px-4 py-2.5 outline-none">
+              <span class="absolute right-4 top-2.5 text-zinc-400">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-x-3 mt-7">
+        <button onclick="hideModal()" 
+                class="flex-1 py-3 rounded-2xl font-medium bg-zinc-800 hover:bg-zinc-700 transition-colors border border-zinc-700">Cancel</button>
+        <button onclick="saveModal()" 
+                id="modal-save-btn"
+                class="flex-1 py-3 rounded-2xl font-semibold bg-white hover:bg-zinc-100 active:bg-zinc-200 transition-colors text-zinc-950">Add to Portfolio</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container" class="fixed bottom-6 right-6 flex flex-col gap-y-2 z-[60]"></div>
+
+  <script>
+    // Tailwind script configuration
+    function initTailwind() {
+      document.querySelectorAll('script').forEach(s => {
+        if (s.src.includes('tailwindcss')) {
+          // Already loaded
+        }
+      });
+    }
+
+    // ===== STATE =====
+    let holdings = [];
+    let currentFilter = '';
+    let currentEditId = null;
+    let currentSort = { key: 'value', dir: 'desc' }; // default: sort by Market Value descending
+
+    function saveToStorage() {
+      try {
+        localStorage.setItem('stockHoldings_v1', JSON.stringify(holdings));
+      } catch (e) {}
+    }
+
+    function loadFromStorage() {
+      try {
+        const raw = localStorage.getItem('stockHoldings_v1');
+        if (raw) {
+          holdings = JSON.parse(raw);
+          // sanitize
+          holdings.forEach(h => {
+            if (typeof h.shares !== 'number') h.shares = parseFloat(h.shares) || 0;
+            if (typeof h.currentPrice !== 'number') h.currentPrice = h.currentPrice ? parseFloat(h.currentPrice) : null;
+            if (typeof h.changePercent !== 'number') h.changePercent = h.changePercent ? parseFloat(h.changePercent) : null;
+            delete h.asOf; // clean up old data
+          });
+        }
+      } catch (e) {
+        holdings = [];
+      }
+    }
+
+    function generateId() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    }
+
+    // ===== FORMATTERS =====
+    function fmtCurrency(amount) {
+      if (amount === null || amount === undefined || isNaN(amount)) return '$0.00';
+      const abs = Math.abs(amount);
+      if (abs >= 1000000) {
+        return (amount < 0 ? '-' : '') + '$' + (abs / 1000000).toFixed(2) + 'M';
+      }
+      return (amount < 0 ? '-' : '') + '$' + abs.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function fmtPercent(pct) {
+      if (pct === null || pct === undefined || isNaN(pct)) return '0.00%';
+      const sign = pct >= 0 ? '+' : '';
+      return sign + pct.toFixed(2) + '%';
+    }
+
+    function fmtShares(n) {
+      if (!n) return '0';
+      return parseFloat(n).toLocaleString(undefined, { maximumFractionDigits: 4 });
+    }
+
+    // ===== SUMMARY + STATS =====
+    function calculateSummary() {
+      let totalValue = 0;
+      let totalDayPL = 0;
+      let bestPct = { symbol: '—', pct: -Infinity };
+      let bestDollar = { symbol: '—', dollar: -Infinity };
+      let worstPct = { symbol: '—', pct: Infinity };
+      let worstDollar = { symbol: '—', dollar: Infinity };
+
+      holdings.forEach(h => {
+        const price = h.currentPrice || 0;
+        const shares = h.shares || 0;
+        const value = shares * price;
+        totalValue += value;
+
+        let dayPL = 0;
+        if (price && h.changePercent != null) {
+          const chg = price * (h.changePercent / 100);
+          dayPL = shares * chg;
+          totalDayPL += dayPL;
+        }
+
+        // Track four separate movers
+        if (h.changePercent != null) {
+          // Best / Worst by percentage
+          if (h.changePercent > bestPct.pct) {
+            bestPct = { symbol: h.symbol, pct: h.changePercent };
+          }
+          if (h.changePercent < worstPct.pct) {
+            worstPct = { symbol: h.symbol, pct: h.changePercent };
+          }
+
+          // Best / Worst by absolute dollar
+          if (dayPL > bestDollar.dollar) {
+            bestDollar = { symbol: h.symbol, dollar: dayPL };
+          }
+          if (dayPL < worstDollar.dollar) {
+            worstDollar = { symbol: h.symbol, dollar: dayPL };
+          }
+        }
+      });
+
+      const dayPct = (totalValue - totalDayPL) > 0 
+        ? (totalDayPL / (totalValue - totalDayPL)) * 100 
+        : 0;
+
+      return {
+        totalValue,
+        totalDayPL,
+        dayPct,
+        positions: holdings.length,
+        bestPct,
+        bestDollar,
+        worstPct,
+        worstDollar
+      };
+    }
+
+    function updateSummary() {
+      const s = calculateSummary();
+
+      // Total value
+      const valEl = document.getElementById('total-value');
+      valEl.textContent = fmtCurrency(s.totalValue);
+      valEl.className = `portfolio-value mt-2 tabular-nums ${s.totalValue >= 0 ? 'text-white' : 'text-rose-400'}`;
+
+      // Positions
+      document.getElementById('total-positions').textContent = 
+        `${s.positions} position${s.positions === 1 ? '' : 's'}`;
+
+      // Day P/L
+      const plEl = document.getElementById('day-pl');
+      plEl.textContent = fmtCurrency(s.totalDayPL);
+      plEl.className = `text-4xl font-semibold tabular-nums mt-1 ${s.totalDayPL >= 0 ? 'gain-positive' : 'gain-negative'}`;
+
+      const plPctEl = document.getElementById('day-pl-pct');
+      plPctEl.textContent = fmtPercent(s.dayPct);
+      plPctEl.className = `text-sm font-medium mt-1 tabular-nums ${s.totalDayPL >= 0 ? 'gain-positive' : 'gain-negative'}`;
+
+      // Best / Worst by % and by $
+      const renderMover = (elId, data, isPct, isPositiveColor) => {
+        const el = document.getElementById(elId);
+        if (!data || data.symbol === '—') {
+          el.textContent = '—';
+          return;
+        }
+
+        if (isPct) {
+          const sign = data.pct >= 0 ? '+' : '';
+          const color = isPositiveColor ? 'text-emerald-400' : 'text-rose-400';
+          el.innerHTML = `${data.symbol} <span class="${color}">${sign}${data.pct.toFixed(1)}%</span>`;
+        } else {
+          const color = data.dollar >= 0 ? 'text-emerald-400' : 'text-rose-400';
+          el.innerHTML = `${data.symbol} <span class="${color}">${fmtCurrency(data.dollar)}</span>`;
+        }
+      };
+
+      renderMover('best-pct', s.bestPct, true, true);
+      renderMover('best-dollar', s.bestDollar, false, true);
+      renderMover('worst-pct', s.worstPct, true, false);
+      renderMover('worst-dollar', s.worstDollar, false, false);
+
+      // Update footer totals if table exists
+      updateTableFooter(s);
+    }
+
+    function updateTableFooter(summary) {
+      const tfoot = document.getElementById('table-footer');
+      if (!holdings.length) {
+        tfoot.innerHTML = '';
+        return;
+      }
+
+      tfoot.innerHTML = `
+        <tr class="bg-zinc-900 font-medium">
+          <td colspan="6" class="px-6 py-4 text-xs text-emerald-400 tracking-widest font-semibold">PORTFOLIO TOTALS</td>
+          <td class="px-4 py-4 text-right">
+            <span class="font-semibold tabular-nums ${summary.totalDayPL >= 0 ? 'gain-positive' : 'gain-negative'}">
+              ${fmtCurrency(summary.totalDayPL)}
+            </span>
+          </td>
+          <td class="px-6 py-4 text-right">
+            <span class="font-semibold text-lg tabular-nums">${fmtCurrency(summary.totalValue)}</span>
+          </td>
+          <td></td>
+        </tr>
+      `;
+    }
+
+    // ===== RENDER TABLE =====
+    function renderTable(filtered = null) {
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = '';
+
+      let data = filtered || holdings;
+
+      // Apply search filter if needed
+      if (!filtered && currentFilter) {
+        const term = currentFilter.toLowerCase();
+        data = data.filter(h =>
+          h.symbol.toLowerCase().includes(term) ||
+          (h.name && h.name.toLowerCase().includes(term))
+        );
+      }
+
+      // Apply sorting
+      if (currentSort.key) {
+        data = [...data].sort((a, b) => {
+          const va = getSortValue(a, currentSort.key);
+          const vb = getSortValue(b, currentSort.key);
+          if (va < vb) return currentSort.dir === 'asc' ? -1 : 1;
+          if (va > vb) return currentSort.dir === 'asc' ? 1 : -1;
+          return 0;
+        });
+      }
+
+      if (!data.length) {
+        document.getElementById('empty-state').classList.remove('hidden');
+        document.getElementById('empty-state').classList.add('flex');
+        document.getElementById('table-footer').innerHTML = '';
+        return;
+      } else {
+        document.getElementById('empty-state').classList.add('hidden');
+        document.getElementById('empty-state').classList.remove('flex');
+      }
+
+      data.forEach(holding => {
+        const tr = document.createElement('tr');
+        tr.className = 'data-row group';
+        tr.dataset.id = holding.id;
+
+        const price = holding.currentPrice || 0;
+        const chgPct = holding.changePercent != null ? holding.changePercent : 0;
+        const chgPerShare = price * (chgPct / 100);
+        const dayPL = holding.shares * chgPerShare;
+        const marketValue = holding.shares * price;
+
+        const chgPctColor = chgPct >= 0 ? 'gain-positive' : 'gain-negative';
+        const dayPLColor = dayPL >= 0 ? 'gain-positive' : 'gain-negative';
+
+        tr.innerHTML = `
+          <td class="px-6 py-3.5">
+            <div class="font-semibold tracking-tight text-lg text-white">${holding.symbol}</div>
+          </td>
+          <td class="px-3 py-3.5 text-zinc-300">
+            <div class="line-clamp-1 pr-2">${holding.name || holding.symbol}</div>
+          </td>
+          <td class="px-4 py-3.5">
+            <input type="number" step="any" value="${holding.shares}" 
+                   class="shares-input w-24 text-right font-medium mono px-3 py-1.5 rounded-2xl border border-transparent focus:border-blue-500/70 bg-zinc-950">
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex items-center justify-end gap-x-1">
+              <span class="text-zinc-400">$</span>
+              <input type="number" step="0.01" value="${price.toFixed(2)}" 
+                     class="price-input w-28 text-right font-medium mono px-3 py-1.5 rounded-2xl border border-transparent focus:border-blue-500/70 bg-zinc-950">
+            </div>
+          </td>
+          <td class="px-4 py-3.5">
+            <input type="number" step="0.01" value="${chgPct.toFixed(2)}" 
+                   class="pct-input w-20 text-right font-medium mono px-3 py-1.5 rounded-2xl border border-transparent focus:border-blue-500/70 bg-zinc-950 ${chgPctColor}">
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <div class="font-medium tabular-nums ${chgPctColor}">${fmtCurrency(chgPerShare)}</div>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <div class="font-semibold tabular-nums text-lg ${dayPLColor}">${fmtCurrency(dayPL)}</div>
+          </td>
+          <td class="px-6 py-3.5 text-right">
+            <div class="font-semibold tabular-nums text-lg value-cell">${fmtCurrency(marketValue)}</div>
+          </td>
+          <td class="px-3 py-3.5">
+            <button class="edit-btn opacity-40 group-hover:opacity-100 p-2 hover:bg-zinc-800 rounded-2xl transition-all" title="Edit">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </button>
+          </td>
+        `;
+
+        // Attach input listeners
+        const sharesInput = tr.querySelector('.shares-input');
+        const priceInput = tr.querySelector('.price-input');
+        const pctInput = tr.querySelector('.pct-input');
+
+        const updateFromInputs = () => {
+          const newShares = parseFloat(sharesInput.value) || 0;
+          const newPrice = parseFloat(priceInput.value) || 0;
+          const newPct = parseFloat(pctInput.value);
+
+          const idx = holdings.findIndex(h => h.id === holding.id);
+          if (idx === -1) return;
+
+          holdings[idx].shares = newShares;
+          holdings[idx].currentPrice = newPrice;
+          if (!isNaN(newPct)) holdings[idx].changePercent = newPct;
+
+          saveToStorage();
+          updateSummary();
+          
+          // Live update the computed cells only (no full re-render)
+          updateRowComputed(tr, holdings[idx]);
+        };
+
+        sharesInput.addEventListener('input', updateFromInputs);
+        priceInput.addEventListener('input', updateFromInputs);
+        pctInput.addEventListener('input', updateFromInputs);
+
+        // Edit button
+        tr.querySelector('.edit-btn').addEventListener('click', () => {
+          showEditModal(holding.id);
+        });
+
+        tbody.appendChild(tr);
+      });
+
+      updateSummary();
+      updateSortIndicators();
+    }
+
+    function updateRowComputed(tr, holding) {
+      const price = holding.currentPrice || 0;
+      const chgPct = holding.changePercent != null ? holding.changePercent : 0;
+      const chgPerShare = price * (chgPct / 100);
+      const dayPL = holding.shares * chgPerShare;
+      const marketValue = holding.shares * price;
+
+      const cells = tr.querySelectorAll('td');
+
+      // Change $ (index 5)
+      const chgColor = chgPct >= 0 ? 'gain-positive' : 'gain-negative';
+      cells[5].innerHTML = `<div class="font-medium tabular-nums ${chgColor}">${fmtCurrency(chgPerShare)}</div>`;
+
+      // Day PL (index 6)
+      const dayColor = dayPL >= 0 ? 'gain-positive' : 'gain-negative';
+      cells[6].innerHTML = `<div class="font-semibold tabular-nums text-lg ${dayColor}">${fmtCurrency(dayPL)}</div>`;
+
+      // Market value (index 7)
+      cells[7].innerHTML = `<div class="font-semibold tabular-nums text-lg value-cell">${fmtCurrency(marketValue)}</div>`;
+    }
+
+    function filterTable() {
+      const term = document.getElementById('search-input').value.trim().toLowerCase();
+      currentFilter = term;
+      renderTable();
+    }
+
+    // ===== SORTING =====
+    function getSortValue(h, key) {
+      const price = h.currentPrice || 0;
+      const chgPct = h.changePercent != null ? h.changePercent : 0;
+      const chgPerShare = price * (chgPct / 100);
+      const dayPL = h.shares * chgPerShare;
+      const value = h.shares * price;
+
+      switch (key) {
+        case 'symbol': return h.symbol || '';
+        case 'name': return (h.name || h.symbol || '').toLowerCase();
+        case 'shares': return h.shares || 0;
+        case 'price': return price;
+        case 'changePct': return chgPct;
+        case 'changeUsd': return chgPerShare;
+        case 'dayPL': return dayPL;
+        case 'value': return value;
+        default: return 0;
+      }
+    }
+
+    function sortBy(key) {
+      if (currentSort.key === key) {
+        currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentSort.key = key;
+        currentSort.dir = (key === 'symbol' || key === 'name') ? 'asc' : 'desc';
+      }
+      renderTable();
+    }
+
+    function updateSortIndicators() {
+      // Clear all arrows
+      document.querySelectorAll('.sort-arrow').forEach(el => el.textContent = '');
+
+      if (!currentSort.key) return;
+
+      const el = document.getElementById(`sort-${currentSort.key}`);
+      if (el) {
+        el.textContent = currentSort.dir === 'asc' ? '▲' : '▼';
+      }
+    }
+
+    // ===== MARKET HOURS (NYSE / NASDAQ regular session) =====
+    // Only auto-update prices during active US equity trading hours.
+    function getEasternTime() {
+      // Returns Date object whose local getters reflect America/New_York wall time
+      return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    }
+
+    function isMarketOpen() {
+      const et = getEasternTime();
+      const day = et.getDay(); // 0 = Sunday, 6 = Saturday
+      if (day === 0 || day === 6) return false;
+
+      const minutes = et.getHours() * 60 + et.getMinutes();
+      const OPEN_MIN = 9 * 60 + 30;   // 09:30 ET
+      const CLOSE_MIN = 16 * 60;      // 16:00 ET
+
+      return minutes >= OPEN_MIN && minutes < CLOSE_MIN;
+    }
+
+    function getMarketStatus() {
+      const et = getEasternTime();
+      const day = et.getDay();
+      const minutes = et.getHours() * 60 + et.getMinutes();
+
+      if (day === 0 || day === 6) {
+        return { open: false, label: 'Weekend • Updates paused' };
+      }
+      if (minutes < 9 * 60 + 30) {
+        return { open: false, label: 'Pre-market • Updates paused' };
+      }
+      if (minutes >= 16 * 60) {
+        return { open: false, label: 'After-hours • Updates paused' };
+      }
+      return { open: true, label: 'Market open • Auto every 60s' };
+    }
+
+    function updateMarketStatusPill(forceLastUpdated = null) {
+      const pill = document.getElementById('last-updated');
+      const textEl = document.getElementById('last-updated-text');
+      if (!pill || !textEl) return;
+
+      const status = getMarketStatus();
+
+      if (status.open) {
+        pill.style.display = 'flex';
+        pill.className = 'flex items-center gap-x-2 text-xs px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-2xl text-zinc-400';
+        if (forceLastUpdated) {
+          textEl.textContent = forceLastUpdated;
+        } else {
+          textEl.innerHTML = `<span class="inline-block w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse mr-1.5"></span>${status.label}`;
+        }
+      } else {
+        pill.style.display = 'flex';
+        pill.className = 'flex items-center gap-x-2 text-xs px-3 py-1.5 bg-zinc-900 border border-amber-900/60 rounded-2xl text-amber-400';
+        textEl.textContent = status.label;
+      }
+    }
+
+    // ===== LIVE PRICE FETCH
+    // Primary: Finnhub (when user provides free API key) → real-time
+    // Fallback: OnclickMedia public feed (delayed)
+    function formatDate(d) {
+      return d.toISOString().split('T')[0];
+    }
+
+    async function fetchOneSymbol(symbol) {
+      const end = new Date();
+      const sevenDaysAgo = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      // 1) Fresh price — try without date filter first (often returns the most recent tick available)
+      const minuteUrl = `https://api.onclickmedia.com/stock-data/v2/adj/?ticker=${encodeURIComponent(symbol)}` +
+                        `&bar_size=1m&extended=true`;
+
+      // 2) Previous close: Use daily bars for reliable day-over-day change
+      const dailyUrl = `https://api.onclickmedia.com/stock-data/v2/adj/?ticker=${encodeURIComponent(symbol)}` +
+                       `&from=${formatDate(sevenDaysAgo)}&to=${formatDate(end)}&bar_size=1d&extended=true`;
+
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 12000);
+
+      try {
+        // Fetch both in parallel
+        const [minRes, dayRes] = await Promise.all([
+          fetch(minuteUrl, { signal: controller.signal, headers: { 'Accept': 'application/json' } }),
+          fetch(dailyUrl, { signal: controller.signal, headers: { 'Accept': 'application/json' } })
+        ]);
+        clearTimeout(t);
+
+        let currentPrice = null;
+        let changePct = null;
+
+        // --- Fresh current price from minute data ---
+        if (minRes.ok) {
+          const minBars = await minRes.json();
+          if (Array.isArray(minBars) && minBars.length > 0) {
+            const sortedMin = [...minBars].sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
+            const latestMin = sortedMin[sortedMin.length - 1];
+            currentPrice = parseFloat(latestMin.close);
+          }
+        }
+
+        // --- Previous close from daily data for accurate % change ---
+        if (dayRes.ok) {
+          const dayBars = await dayRes.json();
+          if (Array.isArray(dayBars) && dayBars.length > 0) {
+            const sortedDay = [...dayBars].sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
+
+            // Find the most recent daily bar and the one before it
+            const latestDay = sortedDay[sortedDay.length - 1];
+            const prevDay = sortedDay.length > 1 ? sortedDay[sortedDay.length - 2] : null;
+
+            if (currentPrice === null && latestDay) {
+              currentPrice = parseFloat(latestDay.close); // fallback
+            }
+
+            if (prevDay && prevDay.close && currentPrice) {
+              const prevClose = parseFloat(prevDay.close);
+              if (prevClose > 0) {
+                changePct = ((currentPrice - prevClose) / prevClose) * 100;
+              }
+            }
+          }
+        }
+
+        if (currentPrice === null) {
+          return null; // nothing usable
+        }
+
+        return {
+          symbol: symbol.toUpperCase(),
+          regularMarketPrice: currentPrice,
+          regularMarketChangePercent: changePct
+        };
+
+      } catch (err) {
+        console.warn(`[OnclickMedia] Failed for ${symbol}:`, err.message);
+        return null;
+      }
+    }
+
+    async function fetchStockQuotes(symbols) {
+      if (!symbols || symbols.length === 0) return [];
+
+      const unique = [...new Set(symbols.map(s => s.toUpperCase()))];
+      const results = [];
+
+      // === Preferred: Finnhub (real-time when key is provided) ===
+      if (finnhubToken) {
+        for (const sym of unique) {
+          const quote = await fetchFromFinnhub(sym);
+          if (quote) results.push(quote);
+          await new Promise(r => setTimeout(r, 120)); // be kind to free tier
+        }
+        return results;
+      }
+
+      // === Fallback: OnclickMedia public feed ===
+      const concurrency = 4;
+
+      for (let i = 0; i < unique.length; i += concurrency) {
+        const batch = unique.slice(i, i + concurrency);
+        const promises = batch.map(sym => fetchOneSymbol(sym));
+        const settled = await Promise.allSettled(promises);
+
+        settled.forEach(s => {
+          if (s.status === 'fulfilled' && s.value) {
+            results.push(s.value);
+          }
+        });
+
+        if (i + concurrency < unique.length) {
+          await new Promise(r => setTimeout(r, 350));
+        }
+      }
+
+      return results;
+    }
+
+    function applyQuotes(results) {
+      let updatedCount = 0;
+      const now = new Date();
+
+      results.forEach(quote => {
+        const sym = quote.symbol;
+        holdings.forEach(h => {
+          if (h.symbol.toUpperCase() === sym.toUpperCase()) {
+            h.currentPrice = quote.regularMarketPrice ?? h.currentPrice;
+            if (quote.regularMarketChangePercent != null) {
+              h.changePercent = quote.regularMarketChangePercent;
+            }
+            if (!h.name || h.name === h.symbol) {
+              h.name = quote.shortName || quote.longName || h.name;
+            }
+            updatedCount++;
+          }
+        });
+      });
+
+      if (updatedCount > 0) {
+        saveToStorage();
+        renderTable();
+        updateSummary();
+        
+        // Update last updated pill — show timestamp only while market is open
+        const pill = document.getElementById('last-updated');
+        const text = document.getElementById('last-updated-text');
+        pill.style.display = 'flex';
+        if (isMarketOpen()) {
+          text.textContent = `Updated ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+          // Restore normal open styling + pulsing dot shortly after
+          setTimeout(() => {
+            if (isMarketOpen()) updateMarketStatusPill();
+          }, 4500);
+        } else {
+          updateMarketStatusPill();
+        }
+      }
+      return updatedCount;
+    }
+
+    async function refreshPrices(isAuto = false) {
+      const btn = document.getElementById('refresh-btn');
+      const originalText = btn ? btn.innerHTML : '';
+
+      if (btn) {
+        btn.innerHTML = `
+          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          <span>Fetching...</span>
+        `;
+        btn.disabled = true;
+      }
+
+      // Manual refresh outside hours: still allow (APIs may return last close), but inform user
+      if (!isAuto && !isMarketOpen()) {
+        showToast('Market is closed — fetching latest available quotes from feed', 'success');
+      }
+
+      const symbols = holdings.map(h => h.symbol).filter(Boolean);
+
+      try {
+        const results = await fetchStockQuotes(symbols);
+        const count = applyQuotes(results);
+
+        if (!isAuto) {
+          if (count > 0) {
+            showToast(`Updated ${count} price${count === 1 ? '' : 's'} from live feed`, 'success');
+          } else {
+            showToast('No fresh prices returned for your symbols', 'error');
+          }
+        }
+      } catch (err) {
+        if (!isAuto) {
+          showToast('Live price fetch encountered an error. Using last known values.', 'error');
+        }
+      } finally {
+        if (btn) {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+        }
+      }
+    }
+
+
+
+    // ===== IMPORT EXCEL / CSV =====
+    function triggerImport() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.xlsx,.xls,.csv';
+      input.onchange = (e) => handleFile(e.target.files[0]);
+      input.click();
+    }
+
+    async function handleFile(file) {
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+
+          // Convert to JSON (array of objects using header row)
+          const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+          if (!rows.length) {
+            showToast('The file appears to be empty.', 'error');
+            return;
+          }
+
+          const imported = parseImportedRows(rows);
+          
+          if (imported.length === 0) {
+            showToast('Could not find Symbol + Shares columns. Check your file headers.', 'error');
+            return;
+          }
+
+          // Replace current holdings with imported (user can re-import to add more if needed)
+          holdings = imported;
+          saveToStorage();
+          renderTable();
+          updateSummary();
+
+          showToast(`Imported ${imported.length} holding${imported.length === 1 ? '' : 's'}`, 'success');
+
+          // Attempt price refresh automatically
+          setTimeout(() => {
+            const symbols = imported.map(h => h.symbol);
+            fetchStockQuotes(symbols).then(results => {
+              const c = applyQuotes(results);
+              if (c) showToast(`Live prices loaded for ${c} symbols`, 'success');
+            }).catch(() => {});
+          }, 420);
+
+        } catch (err) {
+          console.error(err);
+          showToast('Failed to read file. Is it a valid Excel or CSV?', 'error');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function parseImportedRows(rows) {
+      const result = [];
+
+      // Column name aliases
+      const findCol = (row, aliases) => {
+        const keys = Object.keys(row);
+        for (const alias of aliases) {
+          const found = keys.find(k => k.toLowerCase().trim() === alias.toLowerCase());
+          if (found && row[found] !== undefined && row[found] !== '') return row[found];
+        }
+        return null;
+      };
+
+      const symbolAliases = ['symbol', 'ticker', 'sym', 'ticker symbol', 'stock symbol'];
+      const nameAliases = ['name', 'company', 'description', 'company name', 'security', 'longname', 'shortname'];
+      const sharesAliases = ['shares', 'quantity', 'qty', 'share count', 'num shares', 'position', 'units', 'amount'];
+      const priceAliases = ['price', 'last price', 'current price', 'last', 'market price', 'close', 'last close'];
+      const pctAliases = ['change %', '% change', 'daily %', 'chg %', 'percent change', 'change percent'];
+
+      rows.forEach((row, idx) => {
+        const symbol = findCol(row, symbolAliases);
+        const sharesRaw = findCol(row, sharesAliases);
+        if (!symbol || sharesRaw === null) return;
+
+        const shares = parseFloat(sharesRaw);
+        if (isNaN(shares) || shares <= 0) return;
+
+        const name = findCol(row, nameAliases) || symbol;
+        const price = parseFloat(findCol(row, priceAliases)) || null;
+        const pct = parseFloat(findCol(row, pctAliases)) || null;
+
+        result.push({
+          id: generateId(),
+          symbol: String(symbol).toUpperCase().trim(),
+          name: String(name).trim(),
+          shares: shares,
+          currentPrice: price,
+          changePercent: pct
+        });
+      });
+
+      return result;
+    }
+
+
+
+    // ===== ADD / EDIT MODAL =====
+    function showEditModal(editId = null) {
+      const modal = document.getElementById('modal');
+      const title = document.getElementById('modal-title');
+      const saveBtn = document.getElementById('modal-save-btn');
+
+      currentEditId = editId;
+
+      if (editId) {
+        const h = holdings.find(x => x.id === editId);
+        if (!h) return;
+
+        title.textContent = 'Edit Holding';
+        saveBtn.textContent = 'Save Changes';
+
+        document.getElementById('modal-symbol').value = h.symbol;
+        document.getElementById('modal-name').value = h.name || '';
+        document.getElementById('modal-shares').value = h.shares || '';
+        document.getElementById('modal-price').value = h.currentPrice || '';
+        document.getElementById('modal-change-pct').value = h.changePercent != null ? h.changePercent : '';
+      } else {
+        title.textContent = 'Add Stock';
+        saveBtn.textContent = 'Add to Portfolio';
+
+        document.getElementById('modal-symbol').value = '';
+        document.getElementById('modal-name').value = '';
+        document.getElementById('modal-shares').value = '10';
+        document.getElementById('modal-price').value = '';
+        document.getElementById('modal-change-pct').value = '';
+      }
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      
+      // Focus first field
+      setTimeout(() => document.getElementById('modal-symbol').focus(), 80);
+    }
+
+    function hideModal() {
+      const modal = document.getElementById('modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      currentEditId = null;
+    }
+
+    function saveModal() {
+      const symbol = document.getElementById('modal-symbol').value.trim().toUpperCase();
+      const name = document.getElementById('modal-name').value.trim();
+      const shares = parseFloat(document.getElementById('modal-shares').value) || 0;
+      const price = parseFloat(document.getElementById('modal-price').value) || null;
+      const pct = parseFloat(document.getElementById('modal-change-pct').value);
+
+      if (!symbol) {
+        alert('Symbol is required');
+        return;
+      }
+      if (shares <= 0) {
+        alert('Shares must be greater than zero');
+        return;
+      }
+
+      if (currentEditId) {
+        // Update existing
+        const idx = holdings.findIndex(h => h.id === currentEditId);
+        if (idx !== -1) {
+          holdings[idx].symbol = symbol;
+          holdings[idx].name = name || symbol;
+          holdings[idx].shares = shares;
+          holdings[idx].currentPrice = price;
+          holdings[idx].changePercent = !isNaN(pct) ? pct : holdings[idx].changePercent;
+        }
+      } else {
+        // New holding
+        holdings.push({
+          id: generateId(),
+          symbol,
+          name: name || symbol,
+          shares,
+          currentPrice: price,
+          changePercent: !isNaN(pct) ? pct : null
+        });
+      }
+
+      saveToStorage();
+      hideModal();
+      renderTable();
+      updateSummary();
+    }
+
+    // ===== EXPORT =====
+    function exportToExcel() {
+      if (!holdings.length) {
+        showToast('Nothing to export', 'error');
+        return;
+      }
+
+      const exportRows = holdings.map(h => {
+        const price = h.currentPrice || 0;
+        const chg = h.changePercent != null ? h.changePercent : 0;
+        const dayPL = h.shares * price * (chg / 100);
+        const value = h.shares * price;
+
+        return {
+          Symbol: h.symbol,
+          Name: h.name,
+          Shares: h.shares,
+          'Current Price': price,
+          'Change %': chg,
+          'Day P/L': parseFloat(dayPL.toFixed(2)),
+          'Market Value': parseFloat(value.toFixed(2))
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(exportRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Portfolio');
+
+      // Auto-size columns roughly
+      const cols = Object.keys(exportRows[0]);
+      ws['!cols'] = cols.map(() => ({ wch: 18 }));
+
+      const date = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `portfolio-${date}.xlsx`);
+    }
+
+    // ===== FINNHUB REAL-TIME INTEGRATION =====
+    let finnhubToken = localStorage.getItem('finnhubToken') || '';
+
+    function updateDataSourceLabel() {
+      const label = document.getElementById('data-source-label');
+      if (!label) return;
+      if (finnhubToken) {
+        label.textContent = 'Finnhub (real-time)';
+        label.className = 'font-medium text-emerald-400';
+      } else {
+        label.textContent = 'OnclickMedia (delayed)';
+        label.className = 'font-medium text-amber-400';
+      }
+    }
+
+    function showApiModal() {
+      const modal = document.getElementById('api-modal');
+      const input = document.getElementById('finnhub-token');
+      input.value = finnhubToken || '';
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      setTimeout(() => input.focus(), 100);
+    }
+
+    function hideApiModal() {
+      const modal = document.getElementById('api-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function saveFinnhubKey() {
+      const input = document.getElementById('finnhub-token');
+      const token = input.value.trim();
+
+      if (token) {
+        finnhubToken = token;
+        localStorage.setItem('finnhubToken', token);
+        updateDataSourceLabel();
+        hideApiModal();
+        showToast('Finnhub connected. Refreshing prices...', 'success');
+        setTimeout(() => refreshPrices(), 300);
+      } else {
+        hideApiModal();
+      }
+    }
+
+    function clearFinnhubKey() {
+      finnhubToken = '';
+      localStorage.removeItem('finnhubToken');
+      updateDataSourceLabel();
+      hideApiModal();
+      showToast('Finnhub key removed. Using public feed.', 'success');
+    }
+
+    async function fetchFromFinnhub(symbol) {
+      if (!finnhubToken) return null;
+
+      const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${finnhubToken}`;
+
+      try {
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if (!res.ok) return null;
+
+        const data = await res.json();
+        if (typeof data.c !== 'number' || data.c <= 0) return null;
+
+        return {
+          symbol: symbol.toUpperCase(),
+          regularMarketPrice: data.c,
+          regularMarketChangePercent: (typeof data.dp === 'number') ? data.dp : null
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // ===== UTILITIES =====
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      
+      const colors = type === 'success' 
+        ? 'bg-zinc-900 border-emerald-800 text-emerald-300' 
+        : 'bg-zinc-900 border-rose-800 text-rose-300';
+
+      const el = document.createElement('div');
+      el.className = `flex items-center px-5 py-3.5 rounded-3xl border ${colors} shadow-xl text-sm max-w-xs`;
+      el.innerHTML = `
+        <div class="flex-1">${message}</div>
+        <button class="ml-4 text-xs opacity-60 hover:opacity-100">✕</button>
+      `;
+      
+      el.querySelector('button').onclick = () => el.remove();
+      container.appendChild(el);
+
+      setTimeout(() => {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, 4800);
+    }
+
+    function clearAllData() {
+      if (!confirm('Clear your entire portfolio? This cannot be undone.')) return;
+      holdings = [];
+      localStorage.removeItem('stockHoldings_v1');
+      document.getElementById('last-updated').style.display = 'none';
+      renderTable();
+      updateSummary();
+    }
+
+    function loadSampleData() {
+      if (holdings.length && !confirm('Replace current holdings with sample data?')) return;
+
+      holdings = [
+        { id: generateId(), symbol: 'AAPL', name: 'Apple Inc.', shares: 82, currentPrice: 226.45, changePercent: 1.82 },
+        { id: generateId(), symbol: 'NVDA', name: 'NVIDIA Corporation', shares: 35, currentPrice: 138.92, changePercent: -2.14 },
+        { id: generateId(), symbol: 'MSFT', name: 'Microsoft Corporation', shares: 47, currentPrice: 415.80, changePercent: 0.76 },
+        { id: generateId(), symbol: 'AVGO', name: 'Broadcom Inc.', shares: 12, currentPrice: 168.35, changePercent: 3.12 },
+        { id: generateId(), symbol: 'TSLA', name: 'Tesla, Inc.', shares: 28, currentPrice: 272.15, changePercent: -1.35 },
+      ];
+
+      saveToStorage();
+      renderTable();
+      updateSummary();
+      showToast('Loaded sample portfolio', 'success');
+    }
+
+    // ===== KEYBOARD SHORTCUTS =====
+    function initKeyboard() {
+      document.addEventListener('keydown', (e) => {
+        if (e.key === '/' && document.activeElement.tagName === 'BODY') {
+          e.preventDefault();
+          document.getElementById('search-input').focus();
+        }
+        if (e.key.toLowerCase() === 'r' && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          refreshPrices();
+        }
+      });
+
+      // Allow Enter in search to clear filter
+      document.getElementById('search-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          document.getElementById('search-input').value = '';
+          filterTable();
+        }
+      });
+    }
+
+    // ===== INITIALIZATION =====
+    function initialize() {
+      initTailwind();
+      loadFromStorage();
+
+      // Initial render
+      renderTable();
+      updateSummary();
+
+      // Keyboard
+      initKeyboard();
+
+      // Initialize data source label based on whether Finnhub key exists
+      updateDataSourceLabel();
+
+      // If empty on first visit, show sample button hint
+      if (!holdings.length) {
+        // nothing else needed
+      }
+
+      // Market status pill (always running)
+      updateMarketStatusPill();
+      setInterval(updateMarketStatusPill, 45000);
+
+      // Auto price refresh ONLY during active exchange hours (9:30–16:00 ET, Mon–Fri)
+      if (holdings.length > 0) {
+        setInterval(() => {
+          if (holdings.length > 0 && isMarketOpen()) {
+            refreshPrices(true);
+          }
+          // Keep pill in sync even when we skip a price refresh
+          updateMarketStatusPill();
+        }, 60000);
+
+        // Initial price fetch shortly after load — only when market is open
+        setTimeout(() => {
+          if (isMarketOpen()) {
+            refreshPrices(true);
+          } else {
+            updateMarketStatusPill();
+          }
+        }, 1350);
+      }
+
+      // Nice welcome toast on very first load (no holdings ever)
+      if (!localStorage.getItem('stockHoldings_v1')) {
+        setTimeout(() => {
+          if (holdings.length === 0) {
+            showToast('Tip: Try importing an Excel file or click "Load sample data"', 'success');
+          }
+        }, 2600);
+      }
+
+      // Make sure footer is correct on start
+      console.log('%c[Portfolio Tracker] Modern dark stock tracker initialized.', 'color:#3f3f46');
+    }
+
+    // Boot
+    window.onload = initialize;
+  </script>
+</body>
+</html>
