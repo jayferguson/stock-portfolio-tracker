@@ -1,0 +1,7 @@
+[
+  {"id": "ex1", "symbol": "EXA", "name": "EXAMPLE Alpha Industries (example data)", "shares": 82, "currentPrice": 226.45, "changePercent": 1.82},
+  {"id": "ex2", "symbol": "EXB", "name": "EXAMPLE Beta Semiconductors Holdings International (example data)", "shares": 35, "currentPrice": 138.92, "changePercent": -2.14},
+  {"id": "ex3", "symbol": "EXC", "name": "EXAMPLE Gamma Software (example data)", "shares": 47, "currentPrice": 415.8, "changePercent": 0.76},
+  {"id": "ex4", "symbol": "EXD", "name": "EXAMPLE Delta Networks (example data)", "shares": 12, "currentPrice": 168.35, "changePercent": 3.12},
+  {"id": "ex5", "symbol": "EXE", "name": "EXAMPLE Epsilon Motors (example data)", "shares": 28, "currentPrice": 272.15, "changePercent": -1.35}
+]
