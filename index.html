@@ -107,24 +107,36 @@
     [hidden] { display: none !important; }
     .pill-warn { color: var(--warn); border-color: rgba(251, 191, 36, 0.35); }
 
-    /* Holdings table: scrolls inside its own box on narrow screens */
-    .table-scroll { position: relative; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .holdings-table { width: 100%; min-width: 960px; border-collapse: separate; border-spacing: 0; }
-    .holdings-table th { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--muted); padding: 0; border-bottom: 1px solid var(--raised); text-align: left; }
+    /* Holdings table: fits its card from 1024px up; scrolls inside its own box only when narrower */
+    .table-scroll {
+      position: relative; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin; scrollbar-color: var(--line) var(--surface);
+    }
+    .table-scroll::-webkit-scrollbar { height: 8px; }
+    .table-scroll::-webkit-scrollbar-track { background: var(--surface); border-radius: 0 0 16px 16px; }
+    .table-scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: 999px; }
+    .table-scroll::-webkit-scrollbar-thumb:hover { background: var(--field-line); }
+    .holdings-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    .holdings-table th { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--muted); padding: 4px; border-bottom: 1px solid var(--raised); text-align: left; vertical-align: bottom; }
+    .holdings-table th:first-child { padding-left: 16px; }
     .holdings-table th.num { text-align: right; }
-    .holdings-table td { padding: 12px 16px; border-top: 1px solid var(--raised); vertical-align: middle; transition: background-color 120ms var(--ease); }
+    .holdings-table td { padding: 12px; border-top: 1px solid var(--raised); vertical-align: middle; transition: background-color 120ms var(--ease); }
     .holdings-table tbody tr:first-child td { border-top: 0; }
     .holdings-table tbody tr:hover td { background: var(--row-hover); }
     .holdings-table td:first-child { padding-left: 24px; }
     .holdings-table td.num { text-align: right; }
     .holdings-table tfoot td { border-top: 1px solid var(--line); padding-top: 16px; padding-bottom: 16px; }
+    /* Long names truncate (full name in the tooltip) so the row fits the card */
+    .name-cell { max-width: clamp(6rem, 12vw, 20rem); }
+    /* Sort buttons: padding sits inside the cell's 4px gutter, so the focus ring wraps the button and is never clipped */
     .sort-btn {
-      display: flex; width: 100%; align-items: center; gap: 4px; padding: 12px 16px;
+      display: flex; width: 100%; align-items: center; gap: 4px; padding: 8px;
       font: inherit; color: inherit; text-align: inherit; border-radius: 8px; white-space: nowrap;
     }
-    th:first-child .sort-btn { padding-left: 24px; }
     th.num .sort-btn { justify-content: flex-end; }
     .sort-btn:hover { background: var(--raised); color: var(--ink-strong); }
+    /* Between 1024px and desktop, long header labels wrap to two lines instead of widening the table */
+    @media (max-width: 1279px) { .sort-btn { white-space: normal; } }
     .sort-arrow { font-size: 12px; line-height: 16px; opacity: 0.75; min-width: 12px; }
 
     .portfolio-value { font-size: 40px; line-height: 44px; font-weight: 700; letter-spacing: -0.02em; }
@@ -500,29 +512,29 @@
       {
         key: 'name', label: 'Name', firstDir: 'asc',
         sortValue: h => (h.name || h.symbol || '').toLowerCase(),
-        cell: h => `<span class="block max-w-xs truncate text-ink" title="${esc(h.name || h.symbol)}">${esc(h.name || h.symbol)}</span>`,
+        cell: h => `<span class="block name-cell truncate text-ink" title="${esc(h.name || h.symbol)}">${esc(h.name || h.symbol)}</span>`,
         exportAs: 'Name', exportValue: h => h.name
       },
       {
         key: 'shares', label: 'Shares', numeric: true,
         sortValue: h => h.shares || 0,
-        edit: { field: 'shares', step: 'any', width: 'w-24', aria: 'Shares of', value: h => h.shares },
+        edit: { field: 'shares', step: 'any', width: 'w-20', aria: 'Shares of', value: h => h.shares },
         exportAs: 'Shares', exportValue: h => h.shares
       },
       {
         key: 'price', label: 'Price', numeric: true,
         sortValue: h => metrics(h).price,
-        edit: { field: 'currentPrice', step: '0.01', width: 'w-28', aria: 'Price of', prefix: '$', value: h => metrics(h).price.toFixed(2) },
+        edit: { field: 'currentPrice', step: '0.01', width: 'w-24', aria: 'Price of', prefix: '$', value: h => metrics(h).price.toFixed(2) },
         exportAs: 'Current Price', exportValue: h => metrics(h).price
       },
       {
-        key: 'changePct', label: 'Change %', numeric: true,
+        key: 'changePct', label: 'Change\u00a0%', numeric: true,
         sortValue: h => metrics(h).chgPct,
         edit: { field: 'changePercent', step: '0.01', width: 'w-20', aria: 'Daily change % of', value: h => metrics(h).chgPct.toFixed(2), tone: h => metrics(h).chgPct },
         exportAs: 'Change %', exportValue: h => metrics(h).chgPct
       },
       {
-        key: 'changeUsd', label: 'Change $', numeric: true, live: true,
+        key: 'changeUsd', label: 'Change\u00a0$', numeric: true, live: true,
         sortValue: h => metrics(h).chgPerShare,
         cell: h => `<span class="font-medium tabular-nums ${toneClass(metrics(h).chgPct)}">${fmtCurrency(metrics(h).chgPerShare)}</span>`
       },
