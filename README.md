@@ -57,3 +57,14 @@ The app will prefer Finnhub when available and gracefully fall back to the publi
 ## License
 
 MIT License — free to use and modify.
+## Development
+
+- `python3 dev/preview.py --port 8901` serves the app with **EXAMPLE** holdings
+  (`dev/example-holdings.json`, made-up symbols and numbers) seeded into localStorage.
+  Add `?empty=1` for the empty state.
+- `python3 tests/check_no_markup_injection.py` loads a crafted saved holding and a crafted
+  CSV import in headless Chrome and fails if any of it renders as markup.
+  Needs `pip install playwright` and Chrome or Chromium.
+- `python3 tests/check_table_fits_desktop.py` loads the EXAMPLE holdings at 1920, 1280,
+  1024 and 320 px and fails if the table scrolls sideways on desktop, the page scrolls
+  sideways on a phone, or a sort-header focus ring spills out of its cell.
