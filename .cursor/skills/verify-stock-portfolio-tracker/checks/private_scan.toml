@@ -1,0 +1,42 @@
+# Patterns for scan_diff.py: what must never be added to this PUBLIC repo.
+# Generic shapes only. Real names, account numbers and tickers belong in a file
+# OUTSIDE the repo, passed as PRIVATE_PATTERNS_FILE (one regex per line).
+# This file is excluded from its own scan.
+
+block_file_globs = ["*.csv", "*.xlsx", "*.xls", "*.ofx", "*.qfx", "*.pdf", "*.env", "*.pem", "*.key", "machines.json"]
+allow_file_globs = ["dev/example-holdings.json"]
+
+[[pattern]]
+name = "email"
+regex = '[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}'
+allow = ['@example\.(com|org|net)', 'noreply@', '@users\.noreply\.github\.com']
+
+[[pattern]]
+name = "ipv4"
+regex = '(?<![\d.])(\d{1,3}\.){3}\d{1,3}(?![\d.])'
+allow = ['^127\.', '^0\.0\.0\.0$', '^192\.0\.2\.', '^198\.51\.100\.', '^203\.0\.113\.']
+
+[[pattern]]
+name = "tailnet-host"
+regex = '[a-z0-9-]+\.[a-z0-9-]+\.ts\.net'
+allow = []
+
+[[pattern]]
+name = "token"
+regex = '(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|xox[abpr]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY)'
+allow = []
+
+[[pattern]]
+name = "finnhub-key-literal"
+regex = '''finnhubToken['"]?\s*[:=]\s*['"][a-z0-9]{12,}['"]'''
+allow = []
+
+[[pattern]]
+name = "home-or-box-path"
+regex = '(/home/[A-Za-z0-9_.-]+/|/workspace/|/Users/[A-Za-z0-9_.-]+/|[A-Za-z]:\\Users\\)'
+allow = []
+
+[[pattern]]
+name = "long-digit-run"
+regex = '(?<![\d.])\d{9,}(?![\d.])'
+allow = []

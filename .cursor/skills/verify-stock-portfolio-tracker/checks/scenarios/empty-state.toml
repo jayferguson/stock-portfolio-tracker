@@ -1,0 +1,15 @@
+title = "Empty portfolio: empty state shows; Load sample data fills the table"
+feature_doc = "empty-state.md"
+writes = false
+steps = [
+  { do = "goto", path = "/", query = "empty=1" },
+  { do = "expect_count", sel = "#table-body tr", eq = 0 },
+  { do = "expect_visible", sel = "#empty-state" },
+  { do = "expect_text", sel = "#empty-state", contains = "No holdings yet" },
+  { do = "expect_text", sel = "#total-positions", equals = "0 positions" },
+  { do = "shot", name = "empty" },
+  { do = "click", sel = "#empty-state button:has-text('Load sample data')" },
+  { do = "expect_count", sel = "#table-body tr", eq = 5 },
+  { do = "expect_hidden", sel = "#empty-state" },
+  { do = "expect_eval", js = "JSON.parse(localStorage.getItem('stockHoldings_v1')).length", equals = 5 },
+]

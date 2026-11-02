@@ -1,0 +1,15 @@
+title = "API settings dialog opens, focuses the key field, and closes without saving"
+feature_doc = "api-settings.md"
+writes = false
+steps = [
+  { do = "goto", path = "/" },
+  { do = "expect_text", sel = "#data-source-label", matches = "\\S" },
+  { do = "click", sel = "[role=toolbar] button:has-text('API settings')" },
+  { do = "expect_visible", sel = "#api-modal" },
+  { do = "expect_text", sel = "#api-modal-title", equals = "Real-time prices" },
+  { do = "expect_eval", js = "document.activeElement && document.activeElement.id", equals = "finnhub-token" },
+  { do = "shot", name = "api-dialog" },
+  { do = "press", key = "Escape" },
+  { do = "expect_hidden", sel = "#api-modal" },
+  { do = "expect_eval", js = "localStorage.getItem('finnhubToken') || ''", equals = "", why = "nothing saved" },
+]
