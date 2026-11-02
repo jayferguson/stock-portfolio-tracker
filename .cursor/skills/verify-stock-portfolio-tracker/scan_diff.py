@@ -5,8 +5,8 @@ Scans added lines in `git diff <base>` (committed + working tree) and every
 untracked, non-ignored file, against checks/private_scan.toml plus an optional
 PRIVATE_PATTERNS_FILE (one regex per line, kept outside the repo). Prints file
 counts and redacted hits; exit 1 on any hit. Never prints a full matched value.
-The extra file defaults to `extra_patterns_file` in checks/private_scan.toml;
-when that default is missing the stricter pass is skipped with a warning.
+PRIVATE_PATTERNS_FILE unset: the stricter pass is skipped with a warning.
+Set but missing: exit 2.
 
     python3 .cursor/skills/verify-stock-portfolio-tracker/scan_diff.py [--base REF] [--all] [--json]
 """
@@ -50,14 +50,10 @@ def main() -> int:
     if env_extra:  # explicit: a missing file is an error, not a skip
         extra = Path(env_extra).expanduser()
         if not extra.is_file():
-            print(f"scan_diff: PRIVATE_PATTERNS_FILE is set but not a file", file=sys.stderr)
+            print("scan_diff: PRIVATE_PATTERNS_FILE is set but not a file", file=sys.stderr)
             return 2
-    elif cfg.get("extra_patterns_file"):
-        p = Path(cfg["extra_patterns_file"]).expanduser()
-        if p.is_file():
-            extra = p
-        else:
-            warnings.append("extra patterns file (config default) not found; stricter pass skipped")
+    else:  # unset (CI, other machines): skip the stricter pass, loudly
+        warnings.append("PRIVATE_PATTERNS_FILE not set; stricter pass skipped")
     n_extra = 0
     if extra:
         for i, line in enumerate(extra.read_text().splitlines()):
@@ -107,7 +103,6 @@ def main() -> int:
     out = {"ok": not hits, "base": base[:12], "mode": "all-tracked" if a.all else "branch-adds",
            "files_scanned": files, "lines_scanned": lines, "patterns": [p[0] for p in pats],
            "extra_patterns_file": bool(extra),
-           "extra_patterns_source": "env" if env_extra else ("config" if extra else None),
            "extra_patterns": n_extra, "warnings": warnings, "hits": hits}
     if a.json:
         print(json.dumps(out, indent=2))
