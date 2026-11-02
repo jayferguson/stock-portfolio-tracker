@@ -48,6 +48,18 @@
       --warn: #fbbf24;
       --focus: #60a5fa;       /* focus ring: 7.0:1 on surface, 7.8:1 on page */
       --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      /* Motion tokens: the only durations in this file. Small state changes use fast, travel uses moderate,
+         and an exit runs one tier quicker than its entrance. Only transform and opacity animate. */
+      --dur-exit: 60ms;
+      --dur-fast: 80ms;
+      --dur-moderate: 160ms;
+      --dur-slow: 240ms;
+      /* Size ladder: 36px default control, 32px compact (table cells, icon buttons), 40px on touch screens */
+      --control: 36px;
+      --control-compact: 32px;
+      --control-touch: 40px;
+      /* Hover highlight: a light overlay, so it reads the same on any fill (matches the old --line hover on --raised) */
+      --hover-overlay: rgba(255, 255, 255, 0.11);
       --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
       --font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
       --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
@@ -67,10 +79,9 @@
     /* One button style; variants only change colour */
     .btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      min-height: 40px; padding: 8px 16px; border-radius: 12px;
+      min-height: var(--control); padding: 0 16px; border-radius: 12px;
       font-size: 14px; font-weight: 500; line-height: 20px; white-space: nowrap;
       border: 1px solid var(--line); background: var(--raised); color: var(--ink-strong);
-      transition: background-color 150ms var(--ease), color 150ms var(--ease), border-color 150ms var(--ease);
     }
     .btn:hover { background: var(--line); }
     .btn:disabled { opacity: 0.6; cursor: progress; }
@@ -80,15 +91,14 @@
     .btn-ghost { background: transparent; border-color: transparent; color: var(--muted); }
     .btn-ghost:hover { background: var(--raised); color: var(--ink-strong); }
     .btn-danger-ghost:hover { color: var(--loss); }
-    .btn-icon { min-height: 32px; min-width: 32px; padding: 6px; border-radius: 8px; }
+    .btn-icon { min-height: var(--control-compact); min-width: var(--control-compact); padding: 4px; border-radius: 8px; }
     .btn-block { flex: 1 1 0; }
 
     /* One input style */
     .field {
-      width: 100%; min-height: 40px; padding: 8px 12px; border-radius: 12px;
+      width: 100%; min-height: var(--control); padding: 0 12px; border-radius: 12px;
       background: var(--page); color: var(--ink-strong);
       border: 1px solid var(--field-line); font-size: 14px; line-height: 20px;
-      transition: border-color 150ms var(--ease);
     }
     .field::placeholder { color: var(--muted); opacity: 1; }
     .field:hover { border-color: var(--muted); }
@@ -96,7 +106,7 @@
     .field-affix { position: absolute; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; pointer-events: none; }
 
     /* In-table inputs: same field, compact, edge shows on hover */
-    .cell-field { min-height: 32px; padding: 4px 8px; border-radius: 8px; text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; background: var(--page); }
+    .cell-field { min-height: var(--control-compact); padding: 0 8px; border-radius: 8px; text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; background: var(--page); }
     .cell-field:hover { border-color: var(--muted); }
 
     .pill {
@@ -120,9 +130,8 @@
     .holdings-table th { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--muted); padding: 4px; border-bottom: 1px solid var(--raised); text-align: left; vertical-align: bottom; }
     .holdings-table th:first-child { padding-left: 16px; }
     .holdings-table th.num { text-align: right; }
-    .holdings-table td { padding: 12px; border-top: 1px solid var(--raised); vertical-align: middle; transition: background-color 120ms var(--ease); }
+    .holdings-table td { padding: 12px; border-top: 1px solid var(--raised); vertical-align: middle; }
     .holdings-table tbody tr:first-child td { border-top: 0; }
-    .holdings-table tbody tr:hover td { background: var(--row-hover); }
     .holdings-table td:first-child { padding-left: 24px; }
     .holdings-table td.num { text-align: right; }
     .holdings-table tfoot td { border-top: 1px solid var(--line); padding-top: 16px; padding-bottom: 16px; }
@@ -130,7 +139,7 @@
     .name-cell { max-width: clamp(6rem, 12vw, 20rem); }
     /* Sort buttons: padding sits inside the cell's 4px gutter, so the focus ring wraps the button and is never clipped */
     .sort-btn {
-      display: flex; width: 100%; align-items: center; gap: 4px; padding: 8px;
+      display: flex; width: 100%; min-height: var(--control-compact); align-items: center; gap: 4px; padding: 4px 8px;
       font: inherit; color: inherit; text-align: inherit; border-radius: 8px; white-space: nowrap;
     }
     th.num .sort-btn { justify-content: flex-end; }
@@ -143,6 +152,36 @@
 
     .dialog-backdrop { background: rgba(0, 0, 0, 0.7); }
     .dialog { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; }
+
+    /* Touch screens: every control is at least 40px */
+    @media (pointer: coarse) {
+      .btn, .field, .btn-icon, .cell-field, .sort-btn { min-height: var(--control-touch); }
+      .btn-icon { min-width: var(--control-touch); }
+    }
+
+    /* Gliding hover: one highlight per group (holdings rows, action bar) moves between items
+       instead of each item repainting. Pointer only; keyboard focus keeps the normal focus ring. */
+    .glide-group { position: relative; }
+    .glide {
+      position: absolute; top: 0; left: 0; pointer-events: none; opacity: 0;
+      transition: transform var(--dur-moderate) var(--ease), opacity var(--dur-exit) var(--ease);
+    }
+    .glide.is-on { transition: transform var(--dur-moderate) var(--ease), opacity var(--dur-fast) var(--ease); opacity: 1; }
+    .glide.is-fresh { transition: none; }
+    /* Rows: the highlight sits under the transparent cells */
+    .table-scroll .glide { z-index: 0; background: var(--row-hover); }
+    .holdings-table { position: relative; z-index: 1; }
+    /* Action bar: the highlight is a light overlay above the buttons, so their fill stays put */
+    .action-bar .glide { z-index: 2; background: var(--hover-overlay); border-radius: 12px; }
+    .action-bar .btn[data-glide]:hover { background: var(--raised); }
+
+    /* Reduced motion: no glide and no transitions; hover falls back to a plain, instant fill */
+    @media (prefers-reduced-motion: reduce) {
+      :root { --dur-exit: 0ms; --dur-fast: 0ms; --dur-moderate: 0ms; --dur-slow: 0ms; }
+      .glide { display: none; }
+      .holdings-table tbody tr:hover td { background: var(--row-hover); }
+      .action-bar .btn[data-glide]:hover { background: var(--line); }
+    }
   </style>
 </head>
 <body class="bg-page text-ink">
@@ -199,7 +238,8 @@
     <!-- Holdings -->
     <section aria-labelledby="holdings-title">
       <h2 id="holdings-title" class="text-sm font-medium text-muted mb-3 px-1">Holdings</h2>
-      <div class="card table-scroll" role="region" aria-labelledby="holdings-title" tabindex="0">
+      <div class="card table-scroll glide-group" role="region" aria-labelledby="holdings-title" tabindex="0">
+        <div class="glide" aria-hidden="true"></div>
         <table class="holdings-table">
           <thead><tr id="table-head"></tr></thead>
           <tbody id="table-body" class="text-sm"></tbody>
@@ -224,29 +264,30 @@
     </div>
 
     <!-- Toolbar -->
-    <div class="card p-3 mt-6 flex flex-wrap items-center gap-2" role="toolbar" aria-label="Portfolio actions">
-      <button type="button" onclick="triggerImport()" class="btn">
+    <div class="card p-3 mt-6 flex flex-wrap items-center gap-2 glide-group action-bar" role="toolbar" aria-label="Portfolio actions">
+      <div class="glide" aria-hidden="true"></div>
+      <button type="button" onclick="triggerImport()" class="btn" data-glide>
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v-4m0 0l4 4m-4-4l4-4m12 8v-4m0 0l-4 4m4-4l-4-4" />
         </svg>
         <span>Import Excel</span>
       </button>
 
-      <button type="button" onclick="exportToExcel()" class="btn">
+      <button type="button" onclick="exportToExcel()" class="btn" data-glide>
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v4m0 0h16m-16 0l4-4m-4 4l-4-4m16-8v-4m0 0l-4-4m4 4l4-4" />
         </svg>
         <span>Export</span>
       </button>
 
-      <button type="button" onclick="refreshPrices()" id="refresh-btn" class="btn">
+      <button type="button" onclick="refreshPrices()" id="refresh-btn" class="btn" data-glide>
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.058 11H1M12 3v2m0 16v2m9-9H15m-6 0a8 8 0 01-.938-1.016" />
         </svg>
         <span>Refresh prices</span>
       </button>
 
-      <button type="button" onclick="showApiModal()" class="btn">API settings</button>
+      <button type="button" onclick="showApiModal()" class="btn" data-glide>API settings</button>
 
       <div class="hidden sm:block flex-1"></div>
 
@@ -612,6 +653,47 @@
     }
 
     // ===== TABLE =====
+    // Gliding hover. A group holds one .glide element; items are rows (tbody tr) or [data-glide] buttons.
+    // The highlight moves with transform only; its size snaps. It stays lit across the gaps between items,
+    // goes out when the pointer leaves the group or lands on something that is not an item, and is off
+    // entirely under prefers-reduced-motion (CSS hides it; plain hover fills take over).
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    function setupGlide(group, itemsRoot, findItem) {
+      const glide = group && group.querySelector(':scope > .glide');
+      if (!glide || !itemsRoot) return;
+      let lit = false;
+      const hide = () => {
+        lit = false; glide.classList.remove('is-on');
+        itemsRoot.removeAttribute('data-fluid-hover-active-index');
+      };
+      group.addEventListener('pointerover', (e) => {
+        if (reducedMotion.matches || e.pointerType === 'touch') return;
+        const item = findItem(e.target);
+        // The group's own background (gaps, padding) keeps the highlight where it is
+        if (!item) { if (e.target !== group && e.target !== itemsRoot) hide(); return; }
+        const g = group.getBoundingClientRect(), r = item.getBoundingClientRect();
+        const x = r.left - g.left + group.scrollLeft - group.clientLeft;
+        const y = r.top - g.top + group.scrollTop - group.clientTop;
+        if (!lit) glide.classList.add('is-fresh');
+        glide.style.width = r.width + 'px';
+        glide.style.height = r.height + 'px';
+        glide.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+        if (!lit) { void glide.offsetWidth; glide.classList.remove('is-fresh'); lit = true; }
+        glide.classList.add('is-on');
+        const items = [...itemsRoot.querySelectorAll(itemsRoot.tagName === 'TBODY' ? ':scope > tr' : '[data-glide]')];
+        itemsRoot.setAttribute('data-fluid-hover-active-index', String(items.indexOf(item)));
+      });
+      group.addEventListener('pointerleave', hide);
+      reducedMotion.addEventListener('change', hide);
+    }
+    (function setupGlides() {
+      const tbody = document.getElementById('table-body');
+      setupGlide(document.querySelector('.table-scroll'), tbody,
+        (t) => { const tr = t.closest('tr'); return tr && tr.parentElement === tbody ? tr : null; });
+      const bar = document.querySelector('.action-bar');
+      setupGlide(bar, bar, (t) => t.closest('[data-glide]'));
+    })();
+
     function renderTableHead() {
       document.getElementById('table-head').innerHTML = COLUMNS.map(c => `
         <th scope="col" class="${c.numeric ? 'num' : ''}" data-col="${c.key}" aria-sort="none">
