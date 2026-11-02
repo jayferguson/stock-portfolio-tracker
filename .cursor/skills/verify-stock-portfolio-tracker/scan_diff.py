@@ -5,6 +5,8 @@ Scans added lines in `git diff <base>` (committed + working tree) and every
 untracked, non-ignored file, against checks/private_scan.toml plus an optional
 PRIVATE_PATTERNS_FILE (one regex per line, kept outside the repo). Prints file
 counts and redacted hits; exit 1 on any hit. Never prints a full matched value.
+The extra file defaults to `extra_patterns_file` in checks/private_scan.toml;
+when that default is missing the stricter pass is skipped with a warning.
 
     python3 .cursor/skills/verify-stock-portfolio-tracker/scan_diff.py [--base REF] [--all] [--json]
 """
@@ -42,11 +44,26 @@ def main() -> int:
     a = ap.parse_args()
     cfg = tomllib.loads(CFG_PATH.read_text())
     pats = [(p["name"], re.compile(p["regex"]), [re.compile(x) for x in p.get("allow", [])]) for p in cfg["pattern"]]
-    extra = os.environ.get("PRIVATE_PATTERNS_FILE")
+    warnings: list[str] = []
+    env_extra = os.environ.get("PRIVATE_PATTERNS_FILE")
+    extra = None
+    if env_extra:  # explicit: a missing file is an error, not a skip
+        extra = Path(env_extra).expanduser()
+        if not extra.is_file():
+            print(f"scan_diff: PRIVATE_PATTERNS_FILE is set but not a file", file=sys.stderr)
+            return 2
+    elif cfg.get("extra_patterns_file"):
+        p = Path(cfg["extra_patterns_file"]).expanduser()
+        if p.is_file():
+            extra = p
+        else:
+            warnings.append("extra patterns file (config default) not found; stricter pass skipped")
+    n_extra = 0
     if extra:
-        for i, line in enumerate(Path(extra).read_text().splitlines()):
+        for i, line in enumerate(extra.read_text().splitlines()):
             if line.strip() and not line.startswith("#"):
                 pats.append((f"private-file#{i + 1}", re.compile(line.strip(), re.I), []))
+                n_extra += 1
     base = a.base or git("merge-base", "HEAD", "origin/main").strip()
     added: dict[str, list[tuple[int, str]]] = {}
     if a.all:
@@ -89,11 +106,16 @@ def main() -> int:
                     hits.append({"file": f, "line": ln, "pattern": name, "match": redact(v)})
     out = {"ok": not hits, "base": base[:12], "mode": "all-tracked" if a.all else "branch-adds",
            "files_scanned": files, "lines_scanned": lines, "patterns": [p[0] for p in pats],
-           "extra_patterns_file": bool(extra), "hits": hits}
+           "extra_patterns_file": bool(extra),
+           "extra_patterns_source": "env" if env_extra else ("config" if extra else None),
+           "extra_patterns": n_extra, "warnings": warnings, "hits": hits}
     if a.json:
         print(json.dumps(out, indent=2))
     else:
-        print(f"scan_diff: {'clean' if not hits else 'HITS'} — {files} files, {lines} lines, {len(pats)} patterns")
+        print(f"scan_diff: {'clean' if not hits else 'HITS'} — {files} files, {lines} lines, {len(pats)} patterns"
+              f" ({n_extra} from the extra file)")
+        for w in warnings:
+            print(f"  warning: {w}")
         for h in hits:
             print(f"  {h['file']}:{h['line']}: {h['pattern']} {h['match']}")
     return 0 if not hits else 1

@@ -708,8 +708,14 @@ def run_cmd(c: dict[str, Any]) -> dict[str, Any]:
     except subprocess.TimeoutExpired:
         rc, out = 124, "timeout"
     ok = rc == 0 and all(re.search(m, out) for m in c.get("must_match", []))
-    return {"name": c["name"], "ok": ok, "rc": rc, "secs": round(time.time() - t0, 1),
-            "tail": out.strip()[-800:] if not ok or c.get("show_tail") else out.strip()[-200:]}
+    res = {"name": c["name"], "ok": ok, "rc": rc, "secs": round(time.time() - t0, 1),
+           "tail": out.strip()[-800:] if not ok or c.get("show_tail") else out.strip()[-200:]}
+    if c.get("json_warnings") and rc in (0, 1):  # lift the tool's own warnings into the gate verdict
+        try:
+            res["warnings"] = list(json.loads(p.stdout).get("warnings", []))
+        except (ValueError, AttributeError):
+            res.update(ok=False, tail="json_warnings set but output is not JSON: " + out.strip()[-600:])
+    return res
 
 
 def py_syntax(globs: list[str]) -> dict[str, Any]:
@@ -824,6 +830,7 @@ def cmd_gate(args: argparse.Namespace) -> int:
     if g.get("private_scan"):
         ps = [run_cmd(c) for c in g["private_scan"]]
         checks.append({"check": "private_scan", "ok": all(x["ok"] for x in ps), "parts": ps})
+        warnings += [f"private_scan/{x['name']}: {w}" for x in ps for w in x.get("warnings", [])]
 
     # 5. scope
     sc = scope_check(args.diff_base, args.allow_path or [])

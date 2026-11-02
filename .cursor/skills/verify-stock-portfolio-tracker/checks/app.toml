@@ -51,6 +51,8 @@ main_ref = "origin/main"
 tests = [
   { name = "check_no_markup_injection", cmd = ["{pw_python}", "tests/check_no_markup_injection.py"], timeout_s = 180, must_match = ["(?m)^PASS"] },
   { name = "check_table_fits_desktop", cmd = ["{pw_python}", "tests/check_table_fits_desktop.py"], timeout_s = 180, must_match = ["(?m)^PASS"] },
+  # unittest-style: must run >=1 test and end in a bare "OK"; "OK (skipped=N)" is a fail.
+  { name = "check_hover_glide", cmd = ["{pw_python}", "tests/check_hover_glide.py"], timeout_s = 180, must_match = ['(?m)^Ran [1-9]\d* tests? in ', '(?m)^OK\s*$'] },
 ]
 py_globs = ["dev/*.py", "tests/*.py", ".cursor/skills/verify-stock-portfolio-tracker/*.py"]
 inline_js_pages = ["index.html"]
@@ -58,7 +60,7 @@ typecheck = []
 lint = []
 lint_na = "no linter configured (single static HTML file); py compile + node --check cover syntax"
 private_scan = [
-  { name = "scan_diff.py", cmd = ["python3", ".cursor/skills/verify-stock-portfolio-tracker/scan_diff.py", "--json"], timeout_s = 60 },
+  { name = "scan_diff.py", cmd = ["python3", ".cursor/skills/verify-stock-portfolio-tracker/scan_diff.py", "--json"], timeout_s = 60, json_warnings = true },
 ]
 scope_allow = []
 

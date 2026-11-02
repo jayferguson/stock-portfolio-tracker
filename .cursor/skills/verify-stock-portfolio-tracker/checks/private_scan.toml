@@ -3,6 +3,11 @@
 # OUTSIDE the repo, passed as PRIVATE_PATTERNS_FILE (one regex per line).
 # This file is excluded from its own scan.
 
+# Default extra-patterns file (outside the repo; never commit its contents).
+# PRIVATE_PATTERNS_FILE overrides it and must exist when set. If this default
+# is missing (CI, other machines), the stricter pass is skipped with a warning.
+extra_patterns_file = "/workspace/budget-src/private-patterns.txt"
+
 block_file_globs = ["*.csv", "*.xlsx", "*.xls", "*.ofx", "*.qfx", "*.pdf", "*.env", "*.pem", "*.key", "machines.json"]
 allow_file_globs = ["dev/example-holdings.json"]
 
