@@ -44,4 +44,12 @@ Changes go through a pull request; do not push to `main` directly.
 
 ## Verify
 
-A `verify-stock-portfolio-tracker` skill is being added by the Verify bot under `.cursor/skills/` (pending; not in the repo yet). Once it lands, prove every change with it before calling the work done.
+Prove every change with the `verify-stock-portfolio-tracker` skill (`.cursor/skills/verify-stock-portfolio-tracker/SKILL.md`) before calling the work done. It serves `dev/preview.py` on a free loopback port with the made-up `dev/example-holdings.json` seed, fixes the clock, and aborts quote-API requests.
+
+From the repo root:
+
+```text
+python3 .cursor/skills/verify-stock-portfolio-tracker/verify.py gate --json
+```
+
+A pass prints `"verdict": "pass"`: the repo's three browser checks, the 6 UI journeys (add-holding, api-settings, edit-holding, empty-state, holdings, search) in headless Chrome, syntax, the `scan_diff.py` leak scan and a scope check. A browser check that skips counts as a failure. When the change touches product files, name them: `verify.py gate --diff-base origin/main --allow-path 'index.html' --json`. The checks need Playwright and Chrome, plus network to the page's CDNs. For a stricter leak scan, set `PRIVATE_PATTERNS_FILE` to a pattern file kept outside the repo. `verify.py --help` lists the other commands.
