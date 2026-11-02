@@ -1,0 +1,22 @@
+title = "Holdings table: EXAMPLE rows, computed totals, market pill, sort by symbol"
+feature_doc = "holdings.md"
+writes = false
+steps = [
+  { do = "goto", path = "/" },
+  { do = "expect_count", sel = "#table-body tr", eq = 5, why = "dev/example-holdings.json has 5 EXAMPLE rows" },
+  { do = "expect_text", sel = "#table-body", contains = "EXAMPLE Alpha Industries" },
+  { do = "expect_text", sel = "#total-positions", equals = "5 positions" },
+  { do = "expect_text", sel = "#total-value", equals = "$52,614.10", why = "sum of shares x price over the seed (82x226.45 + 35x138.92 + 47x415.8 + 12x168.35 + 28x272.15)" },
+  { do = "expect_text", sel = "#table-footer", contains = "Portfolio totals" },
+  { do = "expect_text", sel = "#day-pl", contains = "$342.58", why = "sum of shares x price x change% / (1 + change%) over the seed" },
+  { do = "expect_text", sel = "#movers", contains = "EXD", why = "best % mover is EXD +3.12%" },
+  { do = "expect_text", sel = "#last-updated-text", contains = "Weekend", why = "clock fixed to a Saturday: auto-refresh paused" },
+  { do = "expect_count", sel = "#table-head th[data-col]", min = 6 },
+  { do = "click", sel = "#table-head th[data-col=symbol] .sort-btn" },
+  { do = "expect_attr", sel = "#table-head th[data-col=symbol]", attr = "aria-sort", equals = "ascending" },
+  { do = "expect_attr", sel = "#table-body tr", attr = "data-id", equals = "ex1", why = "EXA first" },
+  { do = "click", sel = "#table-head th[data-col=symbol] .sort-btn" },
+  { do = "expect_attr", sel = "#table-head th[data-col=symbol]", attr = "aria-sort", equals = "descending" },
+  { do = "expect_attr", sel = "#table-body tr", attr = "data-id", equals = "ex5", why = "EXE first" },
+  { do = "shot", name = "sorted-desc", full_page = true },
+]

@@ -1,0 +1,70 @@
+# Data for verify.py (the engine). Edit this file, not verify.py, when launch,
+# readiness, URL policy or gate commands change. This repo is PUBLIC: keep
+# machine-specific paths out of here (use env vars such as VERIFY_PW_PYTHON).
+
+[app]
+name = "stock-portfolio-tracker"
+surface = "static single-page web UI (index.html), holdings in browser localStorage"
+
+[launch]
+# dev/preview.py serves the repo root and injects dev/example-holdings.json (EXAMPLE
+# symbols EXA..EXE, made-up numbers) into localStorage before the app boots.
+cmd = ["python3", "dev/preview.py", "--port", "{port}", "--bind", "{host}"]
+marker = "dev/preview.py"
+host = "127.0.0.1"
+refuse_ports = [8901]          # the README's documented preview port, often a human's tab
+allow_remote = false
+scrub_env_prefixes = []
+ready_path = "/"
+ready_contains = ["EXAMPLE data injected", "id=\"table-body\""]
+ready_timeout_s = 20
+
+[doctor]
+checks = [
+  { path = "/", contains = ["EXAMPLE data injected", "stockHoldings_v1", "id=\"table-body\""], why = "preview page with EXAMPLE seed" },
+  { path = "/?empty=1", contains = ["localStorage.removeItem('stockHoldings_v1')"], why = "empty-state variant" },
+  { path = "/dev/example-holdings.json", contains = ["EXAMPLE Alpha"], why = "seed file is the made-up one" },
+]
+
+[browser]
+python_candidates = ["~/.venvs/pw/bin/python"]     # or set VERIFY_PW_PYTHON
+chrome_candidates = ["/usr/bin/google-chrome", "google-chrome", "chromium", "chromium-browser"]
+# Loopback plus the page's CDNs (Tailwind, SheetJS, Google Fonts). Quote APIs
+# (finnhub, onclickmedia) and everything else are aborted and logged.
+allow_url_regex = [
+  '^http://127\.0\.0\.1:', '^data:', '^blob:', '^about:',
+  '^https://cdn\.tailwindcss\.com/', '^https://cdn\.jsdelivr\.net/npm/xlsx@',
+  '^https://fonts\.(googleapis|gstatic)\.com/',
+]
+block_url_regex = ['finnhub', 'onclickmedia']
+viewport = { width = 1440, height = 1000 }
+color_scheme = "dark"
+timezone = "America/New_York"
+locale = "en-US"                                   # fmtCurrency uses toLocaleString(undefined)
+fixed_time = "2026-10-31T12:00:00-04:00"           # a Saturday: market closed, so no auto price fetch
+step_timeout_ms = 8000
+fail_on_console_error = true
+console_allow_regex = ['net::ERR_FAILED', 'Failed to load resource']   # aborted quote/CDN requests only
+
+[gate]
+main_ref = "origin/main"
+tests = [
+  { name = "check_no_markup_injection", cmd = ["{pw_python}", "tests/check_no_markup_injection.py"], timeout_s = 180, must_match = ["(?m)^PASS"] },
+  { name = "check_table_fits_desktop", cmd = ["{pw_python}", "tests/check_table_fits_desktop.py"], timeout_s = 180, must_match = ["(?m)^PASS"] },
+]
+py_globs = ["dev/*.py", "tests/*.py", ".cursor/skills/verify-stock-portfolio-tracker/*.py"]
+inline_js_pages = ["index.html"]
+typecheck = []
+lint = []
+lint_na = "no linter configured (single static HTML file); py compile + node --check cover syntax"
+private_scan = [
+  { name = "scan_diff.py", cmd = ["python3", ".cursor/skills/verify-stock-portfolio-tracker/scan_diff.py", "--json"], timeout_s = 60 },
+]
+scope_allow = []
+
+[gate.suggestions]
+tests = "A repo check or a UI journey failed. Read the failing part's tail or evidence/<feature>/result.json + fail.png; fix the product, or update the scenario only if the UI change was intended. The repo checks need network to the page's CDNs."
+typecheck = "Syntax error in dev/tests/skill Python or in index.html's inline script, or a scenario uses an unknown step/key, or the feature map and scenarios disagree."
+lint = "Lint failed; see parts[].tail."
+private_scan = "The branch adds something that looks private (email, IP, token, home path, long digit run, or a pattern from PRIVATE_PATTERNS_FILE). This repo is PUBLIC: remove it before pushing; add an allow rule in checks/private_scan.toml only for a proven false positive."
+scope_check = "Files outside the skill dir changed (or the gate dirtied the tree). A skill-only PR must touch only .cursor/skills/verify-stock-portfolio-tracker/; for a product PR pass --allow-path for the intended files."

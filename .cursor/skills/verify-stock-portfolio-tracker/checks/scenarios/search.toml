@@ -1,0 +1,21 @@
+title = "Search: '/' focuses the box, typing filters rows, Escape clears"
+feature_doc = "search.md"
+writes = false
+steps = [
+  { do = "goto", path = "/" },
+  { do = "expect_count", sel = "#table-body tr", eq = 5 },
+  { do = "press", key = "/", why = "keyboard shortcut while focus is on the page body" },
+  { do = "expect_eval", js = "document.activeElement && document.activeElement.id", equals = "search-input" },
+  { do = "fill", sel = "#search-input", value = "gamma" },
+  { do = "expect_count", sel = "#table-body tr", eq = 1 },
+  { do = "expect_attr", sel = "#table-body tr", attr = "data-id", equals = "ex3" },
+  { do = "shot", name = "filtered" },
+  { do = "fill", sel = "#search-input", value = "exb" },
+  { do = "expect_count", sel = "#table-body tr", eq = 1, why = "symbol match, case-insensitive" },
+  { do = "press", sel = "#search-input", key = "Escape" },
+  { do = "expect_eval", js = "document.querySelector('#search-input').value", equals = "" },
+  { do = "expect_count", sel = "#table-body tr", eq = 5 },
+  { do = "fill", sel = "#search-input", value = "zzz-no-match" },
+  { do = "expect_count", sel = "#table-body tr", eq = 0 },
+  { do = "expect_visible", sel = "#empty-state", why = "no matches shows the empty state" },
+]

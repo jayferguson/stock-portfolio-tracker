@@ -1,0 +1,23 @@
+title = "Edit a holding inline and through the Edit dialog; totals and storage follow"
+feature_doc = "edit-holding.md"
+writes = false
+steps = [
+  { do = "goto", path = "/" },
+  { do = "fill", sel = "#table-body tr[data-id=ex4] input[data-field=shares]", value = "22", why = "inline edit EXD shares 12 -> 22" },
+  { do = "expect_text", sel = "#total-value", equals = "$54,297.60", why = "52,614.10 + 10 x 168.35" },
+  { do = "expect_eval", js = "JSON.parse(localStorage.getItem('stockHoldings_v1')).find(h => h.id === 'ex4').shares", equals = 22 },
+  { do = "click", sel = "button[aria-label='Edit EXB']" },
+  { do = "expect_visible", sel = "#modal" },
+  { do = "expect_text", sel = "#modal-title", equals = "Edit holding" },
+  { do = "expect_eval", js = "document.querySelector('#modal-symbol').value", equals = "EXB", why = "dialog prefilled from the row" },
+  { do = "fill", sel = "#modal-price", value = "100" },
+  { do = "click", sel = "#modal-save-btn" },
+  { do = "expect_hidden", sel = "#modal" },
+  { do = "expect_text", sel = "#total-value", equals = "$52,935.40", why = "54,297.60 - 35 x 138.92 + 35 x 100" },
+  { do = "expect_eval", js = "JSON.parse(localStorage.getItem('stockHoldings_v1')).find(h => h.id === 'ex2').currentPrice", equals = 100 },
+  { do = "expect_count", sel = "#table-body tr", eq = 5, why = "edit does not add a row" },
+  { do = "click", sel = "button[aria-label='Edit EXC']" },
+  { do = "press", key = "Escape" },
+  { do = "expect_hidden", sel = "#modal", why = "Escape closes without saving" },
+  { do = "shot", name = "edited" },
+]

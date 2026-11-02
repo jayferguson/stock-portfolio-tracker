@@ -1,0 +1,25 @@
+title = "Add stock dialog: new holding lands in the table, totals and localStorage"
+feature_doc = "add-holding.md"
+writes = false
+steps = [
+  { do = "goto", path = "/" },
+  { do = "expect_hidden", sel = "#modal" },
+  { do = "click", sel = "[role=toolbar] button:has-text('Add stock')" },
+  { do = "expect_visible", sel = "#modal" },
+  { do = "expect_text", sel = "#modal-title", equals = "Add stock" },
+  { do = "expect_eval", js = "document.activeElement && document.activeElement.id", equals = "modal-symbol", why = "dialog focuses the first field" },
+  { do = "fill", sel = "#modal-symbol", value = "exz" },
+  { do = "fill", sel = "#modal-name", value = "EXAMPLE Zeta (verify)" },
+  { do = "fill", sel = "#modal-shares", value = "10" },
+  { do = "fill", sel = "#modal-price", value = "50" },
+  { do = "fill", sel = "#modal-change-pct", value = "1.5" },
+  { do = "shot", name = "dialog-filled" },
+  { do = "click", sel = "#modal-save-btn" },
+  { do = "expect_hidden", sel = "#modal" },
+  { do = "expect_count", sel = "#table-body tr", eq = 6 },
+  { do = "expect_text", sel = "#table-body", contains = "EXZ", why = "symbol upper-cased" },
+  { do = "expect_text", sel = "#total-positions", equals = "6 positions" },
+  { do = "expect_text", sel = "#total-value", equals = "$53,114.10", why = "52,614.10 + 10 x 50" },
+  { do = "expect_eval", js = "JSON.parse(localStorage.getItem('stockHoldings_v1')).some(h => h.symbol === 'EXZ' && h.shares === 10 && h.currentPrice === 50)", equals = true, why = "side effect: persisted to localStorage" },
+  { do = "shot", name = "added" },
+]
