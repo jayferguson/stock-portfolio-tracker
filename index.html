@@ -173,14 +173,20 @@
     .holdings-table { position: relative; z-index: 1; }
     /* Action bar: the highlight is a light overlay above the buttons, so their fill stays put */
     .action-bar .glide { z-index: 2; background: var(--hover-overlay); border-radius: 12px; }
-    .action-bar .btn[data-glide]:hover { background: var(--raised); }
 
-    /* Reduced motion: no glide and no transitions; hover falls back to a plain, instant fill */
+    /* Plain hover fills are the default (buttons keep .btn:hover). The glide script adds .glide-live to a
+       group once it runs, and only then do the fills step aside for the highlight; if the script fails to
+       load, hover still shows. Under reduced motion the fills always stay. */
+    .holdings-table tbody tr:hover td { background: var(--row-hover); }
+    @media (prefers-reduced-motion: no-preference) {
+      .glide-live .holdings-table tbody tr:hover td { background: transparent; }
+      .glide-live.action-bar .btn[data-glide]:hover { background: var(--raised); }
+    }
+
+    /* Reduced motion: no glide and no transitions; hover is the plain, instant fill above */
     @media (prefers-reduced-motion: reduce) {
       :root { --dur-exit: 0ms; --dur-fast: 0ms; --dur-moderate: 0ms; --dur-slow: 0ms; }
       .glide { display: none; }
-      .holdings-table tbody tr:hover td { background: var(--row-hover); }
-      .action-bar .btn[data-glide]:hover { background: var(--line); }
     }
   </style>
 </head>
@@ -653,46 +659,7 @@
     }
 
     // ===== TABLE =====
-    // Gliding hover. A group holds one .glide element; items are rows (tbody tr) or [data-glide] buttons.
-    // The highlight moves with transform only; its size snaps. It stays lit across the gaps between items,
-    // goes out when the pointer leaves the group or lands on something that is not an item, and is off
-    // entirely under prefers-reduced-motion (CSS hides it; plain hover fills take over).
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    function setupGlide(group, itemsRoot, findItem) {
-      const glide = group && group.querySelector(':scope > .glide');
-      if (!glide || !itemsRoot) return;
-      let lit = false;
-      const hide = () => {
-        lit = false; glide.classList.remove('is-on');
-        itemsRoot.removeAttribute('data-fluid-hover-active-index');
-      };
-      group.addEventListener('pointerover', (e) => {
-        if (reducedMotion.matches || e.pointerType === 'touch') return;
-        const item = findItem(e.target);
-        // The group's own background (gaps, padding) keeps the highlight where it is
-        if (!item) { if (e.target !== group && e.target !== itemsRoot) hide(); return; }
-        const g = group.getBoundingClientRect(), r = item.getBoundingClientRect();
-        const x = r.left - g.left + group.scrollLeft - group.clientLeft;
-        const y = r.top - g.top + group.scrollTop - group.clientTop;
-        if (!lit) glide.classList.add('is-fresh');
-        glide.style.width = r.width + 'px';
-        glide.style.height = r.height + 'px';
-        glide.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
-        if (!lit) { void glide.offsetWidth; glide.classList.remove('is-fresh'); lit = true; }
-        glide.classList.add('is-on');
-        const items = [...itemsRoot.querySelectorAll(itemsRoot.tagName === 'TBODY' ? ':scope > tr' : '[data-glide]')];
-        itemsRoot.setAttribute('data-fluid-hover-active-index', String(items.indexOf(item)));
-      });
-      group.addEventListener('pointerleave', hide);
-      reducedMotion.addEventListener('change', hide);
-    }
-    (function setupGlides() {
-      const tbody = document.getElementById('table-body');
-      setupGlide(document.querySelector('.table-scroll'), tbody,
-        (t) => { const tr = t.closest('tr'); return tr && tr.parentElement === tbody ? tr : null; });
-      const bar = document.querySelector('.action-bar');
-      setupGlide(bar, bar, (t) => t.closest('[data-glide]'));
-    })();
+    // Gliding hover lives in its own <script> after this one, so if it fails this script still runs.
 
     function renderTableHead() {
       document.getElementById('table-head').innerHTML = COLUMNS.map(c => `
@@ -1552,5 +1519,74 @@
 
     // Boot
     window.onload = initialize;
+  </script>
+  <script>
+    // Gliding hover. A group holds one .glide element; items are rows (tbody tr) or [data-glide] buttons.
+    // The highlight moves with transform only; its size snaps. It stays lit across the gaps between items,
+    // goes out when the pointer leaves the group or lands on something that is not an item, and is off
+    // entirely under prefers-reduced-motion (CSS hides it; plain hover fills take over).
+    // CSS hover fills are the default; each group gets .glide-live only once this script has wired it up,
+    // so if this script fails to load or throws, hover still shows as a plain fill.
+    // When the layout moves under a lit highlight (table redraw, action-bar wrap, a label changing width),
+    // it is re-placed at once on the item under the pointer, or on the last item if the pointer is in a gap;
+    // anything else under the pointer (outside the group, the search field) puts it out.
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    function setupGlide(group, itemsRoot, findItem) {
+      const glide = group && group.querySelector(':scope > .glide');
+      if (!glide || !itemsRoot) return;
+      let lit = false, current = null, px = null, py = null, queued = false;
+      const hide = () => {
+        lit = false; current = null; glide.classList.remove('is-on');
+        itemsRoot.removeAttribute('data-fluid-hover-active-index');
+      };
+      const place = (item) => {
+        const g = group.getBoundingClientRect(), r = item.getBoundingClientRect();
+        const x = r.left - g.left + group.scrollLeft - group.clientLeft;
+        const y = r.top - g.top + group.scrollTop - group.clientTop;
+        if (!lit) glide.classList.add('is-fresh');
+        glide.style.width = r.width + 'px';
+        glide.style.height = r.height + 'px';
+        glide.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+        if (!lit) { void glide.offsetWidth; glide.classList.remove('is-fresh'); lit = true; }
+        glide.classList.add('is-on');
+        current = item;
+        const items = [...itemsRoot.querySelectorAll(itemsRoot.tagName === 'TBODY' ? ':scope > tr' : '[data-glide]')];
+        itemsRoot.setAttribute('data-fluid-hover-active-index', String(items.indexOf(item)));
+      };
+      const track = (e) => { px = e.clientX; py = e.clientY; };
+      group.addEventListener('pointerover', (e) => {
+        if (reducedMotion.matches || e.pointerType === 'touch') return;
+        track(e);
+        const item = findItem(e.target);
+        // The group's own background (gaps, padding) keeps the highlight where it is
+        if (!item) { if (e.target !== group && e.target !== itemsRoot) hide(); return; }
+        place(item);
+      });
+      group.addEventListener('pointermove', track, { passive: true });
+      group.addEventListener('pointerleave', () => { px = py = null; hide(); });
+      reducedMotion.addEventListener('change', hide);
+      const reflow = () => {
+        queued = false;
+        if (!lit) return;
+        const under = px === null ? null : document.elementFromPoint(px, py);
+        if (!under) { hide(); return; }
+        const inGap = under === group || under === itemsRoot;
+        const item = findItem(under) || (inGap && current && current.isConnected ? current : null);
+        if (item) place(item); else hide();
+      };
+      const queue = () => { if (lit && !queued) { queued = true; requestAnimationFrame(reflow); } };
+      const sizes = new ResizeObserver(queue);
+      sizes.observe(group);
+      if (itemsRoot !== group) sizes.observe(itemsRoot);
+      new MutationObserver(queue).observe(itemsRoot, { childList: true, subtree: true, characterData: true });
+      group.classList.add('glide-live');
+    }
+    (function setupGlides() {
+      const tbody = document.getElementById('table-body');
+      setupGlide(document.querySelector('.table-scroll'), tbody,
+        (t) => { const tr = t.closest('tr'); return tr && tr.parentElement === tbody ? tr : null; });
+      const bar = document.querySelector('.action-bar');
+      setupGlide(bar, bar, (t) => t.closest('[data-glide]'));
+    })();
   </script>
 </body>

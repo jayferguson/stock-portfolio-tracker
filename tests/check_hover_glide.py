@@ -1,5 +1,7 @@
 """Browser check: the gliding hover highlight follows the pointer in the holdings table and the action bar,
 keeps the normal keyboard focus ring, and is off under prefers-reduced-motion (plain hover fills instead).
+It is re-placed when the layout moves under a still pointer (table redraw or resize, action-bar wrap, a label
+changing width), and plain CSS hover fills show whenever the glide script is not running.
 
 Loads index.html in headless Chrome with dev/example-holdings.json (EXAMPLE data). Quote APIs are blocked.
 Tests are skipped (never passed) when Playwright or a browser is missing.
@@ -55,9 +57,13 @@ class HoverGlide(unittest.TestCase):
         cls.pw.stop()
         cls.tmp.cleanup()
 
-    def open(self, reduced=False):
+    def open(self, reduced=False, init=None):
         pg = self.browser.new_page(viewport={"width": 1280, "height": 900},
                                    reduced_motion="reduce" if reduced else "no-preference")
+        self.errors = []
+        pg.on("pageerror", lambda e: self.errors.append(str(e)))
+        if init:
+            pg.add_init_script(init)
         pg.route(re.compile(r"(onclickmedia|finnhub)"), lambda route: route.abort())
         pg.goto("file://" + self.file)
         pg.wait_for_selector("#table-body tr", timeout=30000)
@@ -132,6 +138,118 @@ class HoverGlide(unittest.TestCase):
         self.assertEqual(g["display"], "none", "action bar highlight still shown under reduced motion")
         self.assertEqual(pg.evaluate("(b) => getComputedStyle(b).backgroundColor", btn), "rgb(63, 63, 70)",
                          "no plain hover fill on the button under reduced motion")
+
+    # ---- the highlight follows layout changes without the pointer moving
+    def settle(self, pg):
+        pg.wait_for_timeout(300)  # one frame for the observers, then past the moderate tier
+
+    def test_table_resize_re_places_the_highlight_on_the_row_still_under_the_pointer(self):
+        pg = self.open()
+        row = pg.query_selector_all("#table-body tr")[1]
+        self.hover(pg, row, dx=30)   # over the first cell, which is still the element under the pointer after the resize
+        before = pg.evaluate(GLIDE, ".table-scroll")
+        under = "() => document.elementFromPoint(%d, %d)" % (row.bounding_box()["x"] + 30, row.bounding_box()["y"] + 20)
+        cell = pg.evaluate_handle(under)
+        pg.set_viewport_size({"width": 1100, "height": 900})        # the rows get narrower; the pointer stays put
+        self.settle(pg)
+        b = row.bounding_box()
+        self.assertLess(b["width"], before["w"] - 50, "the resize did not change the row width")
+        self.assertTrue(pg.evaluate("([c, f]) => c === f", [cell, pg.evaluate_handle(under)]),
+                        "the pointer should still be over the same cell (no new pointerover)")
+        self.assert_on(pg.evaluate(GLIDE, ".table-scroll"), b, "table after a resize")
+        self.assertEqual(self.errors, [])
+
+    def test_table_redraw_that_removes_the_row_under_the_pointer_turns_the_highlight_off(self):
+        pg = self.open()
+        rows = pg.query_selector_all("#table-body tr")
+        self.hover(pg, rows[3], dx=300)
+        first = rows[0].query_selector("td").inner_text().strip().split()[0]
+        pg.fill("#search-input", first)                               # redraws the table; no pointer move
+        self.settle(pg)
+        self.assertEqual(pg.locator("#table-body tr").count(), 1)
+        self.assertLess(pg.evaluate(GLIDE, ".table-scroll")["opacity"], 0.1,
+                        "highlight still lit where the hovered row was")
+
+    def test_table_redraw_keeps_the_highlight_on_the_row_now_under_the_pointer(self):
+        pg = self.open()
+        self.hover(pg, pg.query_selector_all("#table-body tr")[1], dx=300)
+        pg.evaluate("sortBy('symbol')")                               # a full redraw: new <tr> elements
+        self.settle(pg)
+        row = pg.query_selector_all("#table-body tr")[1]
+        self.assert_on(pg.evaluate(GLIDE, ".table-scroll"), row.bounding_box(), "table after a redraw")
+        self.assertEqual(pg.get_attribute("#table-body", "data-fluid-hover-active-index"), "1")
+
+    def test_action_bar_wrap_re_places_the_highlight(self):
+        pg = self.open()
+        api = pg.query_selector(".action-bar [data-glide]:nth-of-type(4)")
+        self.assertEqual(api.inner_text().strip(), "API settings")
+        b0 = self.hover(pg, api, dx=6)
+        bar = pg.query_selector(".action-bar").bounding_box()
+        # Narrow the bar so "API settings" wraps onto a second line; the pointer is left over the bar's own background
+        pg.evaluate("(w) => document.querySelector('.action-bar').style.width = w + 'px'", b0["x"] + b0["width"] - bar["x"] - 4)
+        self.settle(pg)
+        b1 = api.bounding_box()
+        self.assertGreater(b1["y"], b0["y"] + 20, "the button did not wrap")
+        under = pg.evaluate("([x, y]) => { const e = document.elementFromPoint(x, y); return e && e.className; }",
+                            [b0["x"] + 6, b0["y"] + b0["height"] / 2])
+        self.assertIn("action-bar", under or "", "pointer should be over the bar's background after the wrap")
+        self.assert_on(pg.evaluate(GLIDE, ".action-bar"), b1, "action bar after a wrap")
+        self.assertEqual(self.errors, [])
+
+    def test_highlight_goes_out_when_a_wrap_leaves_the_pointer_outside_the_bar(self):
+        pg = self.open()
+        api = pg.query_selector(".action-bar [data-glide]:nth-of-type(4)")
+        b0 = self.hover(pg, api, dx=api.bounding_box()["width"] - 4)
+        bar = pg.query_selector(".action-bar").bounding_box()
+        pg.evaluate("(w) => document.querySelector('.action-bar').style.width = w + 'px'", b0["x"] + b0["width"] - bar["x"] - 12)
+        self.settle(pg)
+        right = pg.query_selector(".action-bar").bounding_box()
+        self.assertGreater(b0["x"] + b0["width"] - 4, right["x"] + right["width"], "pointer should be outside the bar now")
+        self.assertLess(pg.evaluate(GLIDE, ".action-bar")["opacity"], 0.1, "highlight lit though the pointer left the bar")
+
+    def test_a_label_that_changes_width_re_sizes_the_highlight(self):
+        pg = self.open()
+        btn = pg.query_selector("#refresh-btn")
+        b0 = self.hover(pg, btn, dx=10)
+        pg.evaluate("document.querySelector('#refresh-btn span').textContent = 'Refreshing all prices now'")
+        self.settle(pg)
+        b1 = btn.bounding_box()
+        self.assertGreater(b1["width"], b0["width"] + 30)
+        self.assert_on(pg.evaluate(GLIDE, ".action-bar"), b1, "action bar after a label change")
+
+    # ---- plain CSS hover fills whenever the glide is not running
+    FAIL_GLIDE = """(() => { const add = EventTarget.prototype.addEventListener;
+      EventTarget.prototype.addEventListener = function (type, ...rest) {
+        if (type === 'pointerover') throw new Error('glide script failed (simulated)');
+        return add.call(this, type, ...rest); }; })();"""
+
+    def fills(self, pg):
+        row = pg.query_selector_all("#table-body tr")[1]
+        self.hover(pg, row, dx=300)
+        td = pg.evaluate("(r) => getComputedStyle(r.querySelector('td')).backgroundColor", row)
+        btn = pg.query_selector(".action-bar [data-glide]")
+        rest = pg.evaluate("(b) => getComputedStyle(b).backgroundColor", btn)
+        self.hover(pg, btn)
+        return td, rest, pg.evaluate("(b) => getComputedStyle(b).backgroundColor", btn)
+
+    def test_hover_fills_show_when_the_glide_script_fails(self):
+        pg = self.open(init=self.FAIL_GLIDE)
+        self.assertGreaterEqual(pg.locator("#table-body tr").count(), 3, "the app itself must still run")
+        self.assertTrue(self.errors and all("simulated" in e for e in self.errors), self.errors)
+        self.assertEqual(pg.locator(".glide-live").count(), 0)
+        td, rest, hover = self.fills(pg)
+        self.assertNotEqual(td, "rgba(0, 0, 0, 0)", "no hover fill on the row without the glide")
+        self.assertEqual(hover, "rgb(63, 63, 70)", "no hover fill on the button without the glide")
+        self.assertNotEqual(hover, rest)
+        self.assertEqual(pg.evaluate(GLIDE, ".table-scroll")["opacity"], 0)
+
+    def test_fills_step_aside_only_once_the_glide_runs(self):
+        pg = self.open()
+        self.assertEqual(pg.locator(".table-scroll.glide-live, .action-bar.glide-live").count(), 2)
+        td, rest, hover = self.fills(pg)
+        self.assertEqual(td, "rgba(0, 0, 0, 0)", "row fill doubles up with the glide")
+        self.assertEqual(hover, rest, "button fill changes under the glide overlay")
+        self.assertEqual(self.errors, [])
 
 
 if __name__ == "__main__":
