@@ -9,7 +9,7 @@ Self-contained stock portfolio tracker that runs entirely in the browser: one `i
 - `index.html`: the whole app (markup, styles, script).
 - `dev/preview.py`: local preview server that seeds the EXAMPLE holdings.
 - `dev/example-holdings.json`: made-up symbols and numbers.
-- `tests/check_no_markup_injection.py`, `tests/check_table_fits_desktop.py`: headless-Chrome checks.
+- `tests/check_no_markup_injection.py`, `tests/check_table_fits_desktop.py`, `tests/check_hover_glide.py`: headless-Chrome checks.
 
 ## Run locally
 
@@ -23,14 +23,17 @@ Add `?empty=1` to the URL for the empty state. The preview writes nothing to the
 
 ## Tests
 
-Each check is a standalone script that exits 0 and prints `PASS: ...`, or exits 1:
+Each check is a standalone script that exits 0 on a pass or a skip, and 1 on a failure:
 
 ```text
 python3 tests/check_no_markup_injection.py
 python3 tests/check_table_fits_desktop.py
+python3 tests/check_hover_glide.py
 ```
 
-They need a Python with `playwright` installed, Google Chrome or Chromium, and network access to the CDNs (quote APIs are blocked during the run). There is no CI; run both before handing off a change to `index.html`.
+All three are unittest scripts. A real pass ends in a bare `OK` (the two older checks also print `PASS: ...`). Without Playwright or a browser they print `OK (skipped=N)` and still exit 0: that is a skip, not a pass, and the verify gate counts it as a failure.
+
+They need a Python with `playwright` installed, Google Chrome or Chromium, and network access to the CDNs (quote APIs are blocked during the run). There is no CI; run all three before handing off a change to `index.html`.
 
 ## Conventions
 

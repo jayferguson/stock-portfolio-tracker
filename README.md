@@ -69,5 +69,9 @@ MIT License — free to use and modify.
   1024 and 320 px and fails if the table scrolls sideways on desktop, the page scrolls
   sideways on a phone, or a sort-header focus ring spills out of its cell.
 - `python3 tests/check_hover_glide.py` checks that the gliding hover highlight follows the
-  pointer in the holdings table and the action bar, keeps the keyboard focus ring, and is off
-  under reduced motion. Its tests are reported as skipped (not passed) without Playwright or a browser.
+  pointer in the holdings table and the action bar, keeps the keyboard focus ring, is off
+  under reduced motion, is re-placed when the layout moves under a still pointer (table resize
+  or redraw, action-bar wrap, a label changing width), and that plain hover fills show
+  whenever the glide script is not running.
+- All three checks are unittest scripts: without Playwright or a browser they are reported as
+  skipped (`OK (skipped=N)`), never as a pass; a real pass also prints a `PASS:` line.
